@@ -17,7 +17,7 @@ def forward_wrap(func):
             return outputs
         else:
             # exception case needed if cannot be passed onto the device
-            return { k:v.to(device) for k,v in outputs.items() }
+            return { k:v.to(target_device) for k,v in outputs.items() }
     return _forward_wrap
 
 
