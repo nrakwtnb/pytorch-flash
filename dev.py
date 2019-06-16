@@ -21,15 +21,19 @@ def forward_wrap(func):
     return _forward_wrap
 
 
-def input_wrapper(x, y):
+def input_default_wrapper(x, y):
     return {"x":x},{"y":y}
 
 
 
 from ignite.engine.engine import Engine
 
+"""
+    * package args as config
+    * delete output_transform arg ?
+"""
 def create_trainer(model, optimizer, loss_fn, device=None, non_blocking=False, data_loader=None,
-                   input_transform=input_wrapper, output_transform=lambda results: results["loss"].item(), **kwargs):
+                   input_transform=input_default_wrapper, output_transform=lambda results: results["loss"].item(), **kwargs):
     """
     Factory function for creating a trainer for supervised models.
 
@@ -80,9 +84,6 @@ def create_trainer(model, optimizer, loss_fn, device=None, non_blocking=False, d
             if engine.state.iteration == num_train_batches:
                 Is_update = True
 
-        if Is_update:
-            optimizer.zero_grad()
-
         inputs, labels = input_transform(batch)
         outputs = model(inputs)
         loss = loss_fn({"inputs" : inputs,"outputs":outputs, "labels":labels}) / grad_accumulation_steps
@@ -90,6 +91,7 @@ def create_trainer(model, optimizer, loss_fn, device=None, non_blocking=False, d
 
         if Is_update:
             optimizer.step()
+            optimizer.zero_grad()
 
         return output_transform({"inputs":inputs, "outputs":outputs, "labels":labels, "loss":loss})
 
