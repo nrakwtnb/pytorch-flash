@@ -21,8 +21,8 @@ def forward_wrap(func):
     return _forward_wrap
 
 
-def input_default_wrapper(x, y):
-    return {"x":x},{"y":y}
+def input_default_wrapper(batch):
+    return {"x":batch[0]},{"y":batch[1]}
 
 
 
@@ -99,7 +99,7 @@ def create_trainer(model, optimizer, loss_fn, device=None, non_blocking=False, d
 
 
 def create_evaluator(model, metrics={}, device=None, non_blocking=False,
-                     input_transform=input_wrapper, output_transform=lambda results: results, **kwargs):
+                     input_transform=input_default_wrapper, output_transform=lambda results: results, **kwargs):
     """
     Factory function for creating an evaluator for supervised models.
 
