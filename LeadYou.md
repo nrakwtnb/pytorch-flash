@@ -9,3 +9,10 @@
 	+ input wrapper
 		- See `dev.py`
 
+
+* event setting
+	+ each some couples of iterations
+	+ evaluation (train dataset) at each epoch
+	+ evaluation (validation dataset) at each epoch
+
+

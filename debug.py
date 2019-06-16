@@ -38,3 +38,21 @@ class TestNet(nn.Module):
         x = self.fc2(x)
         return { "y" : F.log_softmax(x, dim=-1) }
 
+
+# MNIST data loader
+# taken from pytorch-ignite mnist examples
+
+from torch.utils.data import DataLoader
+
+from torchvision.transforms import Compose, ToTensor, Normalize
+from torchvision.datasets import MNIST
+
+def get_data_loaders(train_batch_size, val_batch_size, mnist_path):
+    data_transform = Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
+
+    train_dataset = MNIST(download=False, root=mnist_path, transform=data_transform, train=True)
+    val_dataset = MNIST(download=False, root=mnist_path, transform=data_transform, train=False)
+    
+    train_loader = DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=val_batch_size, shuffle=False)
+
