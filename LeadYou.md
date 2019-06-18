@@ -14,5 +14,5 @@
 	+ each some couples of iterations
 	+ evaluation (train dataset) at each epoch
 	+ evaluation (validation dataset) at each epoch
-
+	+ optimizer.grad_zero() at epoch starts
 
