@@ -15,10 +15,12 @@ ToDo
 """
 def forward_wrap(func):
     @functools.wraps(func)
-    def _forward_wrap(self, inputs, target_device=None):# retain_comp_graph=True
+    def _forward_wrap(self, inputs, target_device=None, retain_comp_graph=True):
         # this is only valid for the case where model is put on a single device
         device = next(self.parameters()).device
         outputs = func(self, { k:v.to(device) for k,v in inputs.items() })
+        if retain_comp_graph:
+            outputs = outputs.detach()
         if target_device is None or target_device == device:# assume the single device for the model too
             return outputs
         else:
@@ -246,7 +248,7 @@ def setup(config):
 
 from ignite.engine import Events
 from ignite.handlers import EarlyStopping, ModelCheckpoint
-def create_events(config):
+def create_default_events(config):
     vis_tool = config['other']['vis_tool']
     if vis_tool in tensorboardX_flags:
         try:
