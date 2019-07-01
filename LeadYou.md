@@ -19,6 +19,7 @@
 
 * metrics
 	+ prepare many metrics (make it easy to logs ...)
+	+ save etrics log
 
 * event setting
 	+ each some couples of iterations
