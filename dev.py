@@ -5,6 +5,26 @@ visdom_flags = ['v', 'vis', 'visdom']
 
 
 import functools
+import torch
+
+
+"""
+    ToDo
+        * from numpy to Tensor
+        * chainer version ?
+"""
+def _apply_transform(tensors, **kwargs):
+    device = kwargs.get('device', None)
+    retain_comp_graph = kwargs.get('retain_comp_graph', True)
+    if isinstance(tensors, torch.Tensor):
+        if retain_comp_graph:
+            return tensors.to(device)
+        else:
+            return tensors.detach().to(device)
+    elif isinstance(tensors, dict):
+        return { k:_apply_transform(v, **kwargs) for k,v in tensors.items() }
+    elif isinstance(tensors, list):
+        return [ _apply_transform(t, **kwargs) for t in tensors ]
 
 """
 ToDo
@@ -12,22 +32,13 @@ ToDo
     * multi-gpu ( maybe nothing to do ? )
     * allow two input types : dict or single Tensor
     * ? attach loss_fn to model (to consider)
+    * automatic wrapping for nn.model
 """
 def forward_wrap(func):
     @functools.wraps(func)
     def _forward_wrap(self, inputs, target_device=None, retain_comp_graph=True):
         # this is only valid for the case where model is put on a single device
         device = next(self.parameters()).device
-<<<<<<< Updated upstream
-        outputs = func(self, { k:v.to(device) for k,v in inputs.items() })
-        if retain_comp_graph:
-            outputs = outputs.detach()
-        if target_device is None or target_device == device:# assume the single device for the model too
-            return outputs
-        else:
-            # exception case needed if cannot be passed onto the device
-            return { k:v.to(target_device) for k,v in outputs.items() }
-=======
         outputs = func(self, _apply_transform(inputs, device=device))
         if (target_device is None or target_device == device) and retain_comp_graph:# assume the single device for the model too
             return outputs
@@ -36,7 +47,11 @@ def forward_wrap(func):
             return _apply_transform(outputs, device=target_device, retain_comp_graph=retain_comp_graph)
     return _forward_wrap
 
+"""
 
+Idea:
+    * update_info -> turn on as context ?
+"""
 def forward_wrap_imp(func):
     @functools.wraps(func)
     def _forward_wrap(self, inputs, target_device=None, retain_comp_graph=True, update_info=None, **kwargs):
@@ -59,7 +74,6 @@ def forward_wrap_imp(func):
             # exception case needed if cannot be passed onto the device
             # > return { k:v.to(target_device) for k,v in outputs.items() }
             return _apply_transform(outputs, device=target_device, retain_comp_graph=retain_comp_graph)
->>>>>>> Stashed changes
     return _forward_wrap
 
 
