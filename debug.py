@@ -47,11 +47,25 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, Normalize
 from torchvision.datasets import MNIST
 
-def get_data_loaders(train_batch_size, val_batch_size, mnist_path):
+def get_data_loaders(train_batch_size, val_batch_size, mnist_path, train_dataset_size=None, val_dataset_size=None):
     data_transform = Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
 
     train_dataset = MNIST(download=False, root=mnist_path, transform=data_transform, train=True)
     val_dataset = MNIST(download=False, root=mnist_path, transform=data_transform, train=False)
+
+    import numpy as np
+    if isinstance(train_dataset_size, int):
+        train_dataset.data = train_dataset.data[:train_dataset_size]
+        train_dataset.targets = train_dataset.targets[:train_dataset_size]
+    elif isinstance(train_dataset_size, list) or isinstance(train_dataset_size, np.ndarray):
+        train_dataset.data = train_dataset.data[train_dataset_size]
+        train_dataset.targets = train_dataset.targets[train_dataset_size]
+    if isinstance(val_dataset_size, int):
+        val_dataset.data = val_dataset.data[:val_dataset_size]
+        val_dataset.targets = val_dataset.targets[:val_dataset_size]
+    elif isinstance(val_dataset_size, list) or isinstance(val_dataset_size, np.ndarray):
+        val_dataset.data = val_dataset.data[val_dataset_size]
+        val_dataset.targets = val_dataset.targets[val_dataset_size]
     
     train_loader = DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=val_batch_size, shuffle=False)

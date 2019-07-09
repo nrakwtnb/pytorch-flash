@@ -5,6 +5,9 @@ import functools
 import torch
 
 
+DEBUG = True
+
+
 ### utils
 
 
@@ -68,6 +71,7 @@ def wrap_metrics(func, get_y_values):
 
 # to rename the function later
 def check(config):
+    """
     if "grad_accumulation_steps" in config["other"].keys():
         grad_accumulation_steps = config["other"]["grad_accumulation_steps"]
         batch_size = config["train"]["batch_size"]
@@ -76,7 +80,10 @@ def check(config):
         config["train"]["train_batch_size"] = train_batch_size
     else:
         config["train"]["train_batch_size"] = config["train"]["batch_size"]
-    
+    """
+
+    config["train"]["train_batch_size"] = config["train"]["batch_size"]
+
     if "object" not in config.keys():
         config["object"] = {}
         
@@ -151,6 +158,8 @@ def create_trainer_imp(update_info_list,  data_loader, device=None, input_transf
 
     grad_accumulation_steps = kwargs.get('grad_accumulation_steps', 1)
     num_batch_division = grad_accumulation_steps
+    if DEBUG:
+        print("num_batch_division = ", num_batch_division)###
     # multi gpu ?
 
     dataset_size = len(data_loader.dataset)
@@ -195,7 +204,7 @@ def create_trainer_imp(update_info_list,  data_loader, device=None, input_transf
                 if not retain_comp_graph:
                     loss_stage = loss_stage.detach()
             else:
-                if engine.state.iteration < final_batch_iters:
+                if engine.state.iteration % num_train_batches != 0:
                     start_indices = start_indices_default
                     batch_sizes = batch_sizes_default
                 else:
@@ -204,7 +213,7 @@ def create_trainer_imp(update_info_list,  data_loader, device=None, input_transf
 
                 outputs_stage = []
                 loss_stage = []
-                for inputs_, bs in zip(_partition_batch(batch, start_indices), batch_sizes):
+                for inputs_, bs in zip(_partition_batch(inputs, start_indices), batch_sizes):
                     outputs_stage_ = model(inputs_)
                     loss_stage_ = loss_fn({"inputs":inputs_, "outputs":outputs_stage_}) * bs / start_indices[-1]
                     loss_stage_.backward()

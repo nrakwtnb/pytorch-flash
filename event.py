@@ -26,12 +26,13 @@ def create_default_events(config):
 
     log_dir = "tf_log"
 
-    trainer = config["object"]["trainer"]
+    #trainer = config["object"]["trainer"]
     grad_accumulation_steps = config["other"]["grad_accumulation_steps"]
     train_loader = config["object"]["train_loader"]
     val_loader = config["object"]["val_loader"]
     train_evaluator = config["object"]["engine"]["train_evaluator"]
     val_evaluator = config["object"]["engine"]["val_evaluator"]
+    trainer = config['object']['engine']['trainer']
 
 
     num_train_batches = len(train_loader)# -> config
@@ -119,21 +120,30 @@ def create_default_events(config):
         if vis_tool not in tensorboardX_flags and visdom_flags not in visdom_flags:
             pbar.n = pbar.last_print_n = 0
     
+    if "handlers" in config.keys():
+        handlers =  config['handlers']
 
-    early_stopping_patience = 2
-    model_checkpoint_save_interval = 1
-    model_checkpoint_n_saved = 2
-    model_name_prefix = "model"
-    model_name = "model"
-    model_dir = "models"
-    trainer = config['object']['engine']['trainer']
-    val_evaluator = config['object']['engine']['val_evaluator']
-    model = config['object']['model']
+        if 'early_stopping' in handlers.keys():
+            hdl_early_stopping = handlers['early_stopping']
+            early_stopping_patience = hdl_early_stopping['early_stopping_patience']
+            if 'score_function' in hdl_early_stopping.keys():
+                score_function = hdl_early_stopping['score_function']
+            else:
+                score_function = lambda engine:-engine.state.metrics['loss']
+            ES_handler = EarlyStopping(patience=early_stopping_patience, score_function=score_function, trainer=trainer)
+            val_evaluator.add_event_handler(Events.COMPLETED, ES_handler)
 
-    ES_handler = EarlyStopping(patience=early_stopping_patience, score_function=lambda engine:-engine.state.metrics['loss'], trainer=trainer)
-    val_evaluator.add_event_handler(Events.COMPLETED, ES_handler)
-    MC_handler = ModelCheckpoint(model_dir, model_name_prefix, save_interval=model_checkpoint_save_interval, n_saved=model_checkpoint_n_saved, create_dir=True)
-    trainer.add_event_handler(Events.EPOCH_COMPLETED, MC_handler, {model_name : model})
+        if 'checkpoint' in handlers.keys():
+            hdl_checkpoint = handlers['checkpoint']
+            model_checkpoint_save_interval = hdl_checkpoint.get('model_checkpoint_save_interval',1)
+            model_checkpoint_n_saved = hdl_checkpoint.get('model_checkpoint_n_saved', float('inf'))
+            model_name_prefix = hdl_checkpoint.get("prefix", '')
+            model_name = hdl_checkpoint.get("name", 'model')
+            model_dir = hdl_checkpoint.get("save_dir", 'checkpoints')
+
+            model = config['object']['model']
+            MC_handler = ModelCheckpoint(model_dir, model_name_prefix, save_interval=model_checkpoint_save_interval, n_saved=model_checkpoint_n_saved, create_dir=True)
+            trainer.add_event_handler(Events.EPOCH_COMPLETED, MC_handler, {model_name : model})
 
 
 
