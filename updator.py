@@ -4,13 +4,16 @@ from utils import input_default_wrapper
 
 
 """
-    * package args as config
-    * delete output_transform arg ?
+    working...
+    * add ignore_final_batch if final_batch_size != batch_size
+        + In this case, assert dataloader is not None
+    * ? package args as config
 """
-#def create_trainer(model, optimizer, loss_fn, device=None, non_blocking=False, data_loader=None,
-#                   input_transform=input_default_wrapper, output_transform=lambda results: results["loss"].item(), **kwargs):
-def create_trainer(model, optimizer, loss_fn, device=None, non_blocking=False, data_loader=None,
-        input_transform=input_default_wrapper, output_transform=lambda results:results, **kwargs):
+from utils import _compute_start_indices, _partition_batch, _concat_results
+from utils import input_default_wrapper
+from utils import _apply_transform
+import numpy as np
+def create_trainer(update_info_list,  data_loader, device=None, input_transform=input_default_wrapper, retain_comp_graph=False, Add_update_name_in_outputs=False, Add_update_name_in_loss=False, **kwargs):
     """
     Factory function for creating a trainer for supervised models.
 
@@ -25,7 +28,7 @@ def create_trainer(model, optimizer, loss_fn, device=None, non_blocking=False, d
         prepare_batch (callable, optional): function that receives `batch`, `device`, `non_blocking` and outputs
             tuple of tensors `(batch_x, batch_y)`.
         output_transform (callable, optional): function that receives 'x', 'y', 'y_pred', 'loss' and returns value
-            to be assigned to engine's state.output after each iteration. Default is returning `loss.item()`.
+            engine.to be assigned to engine's state.output after each iteration. Default is returning `loss.item()`.
 
     Note: `engine.state.output` for this engine is defind by `output_transform` parameter and is the loss
         of the processed batch by default.
@@ -33,51 +36,101 @@ def create_trainer(model, optimizer, loss_fn, device=None, non_blocking=False, d
     Returns:
         Engine: a trainer engine with supervised update function.
     """
-    if device:
-        model.to(device)
+    #if device:
+    #    model.to(device)
 
     grad_accumulation_steps = kwargs.get('grad_accumulation_steps', 1)
+    num_batch_division = grad_accumulation_steps
+    if DEBUG:
+        print("num_batch_division = ", num_batch_division)###
+    # multi gpu ?
 
-    if data_loader is not None:
-        dataset_size = len(data_loader.dataset)
-        num_train_batches = len(data_loader)
-        train_batch_size = data_loader.batch_size
-        assert (dataset_size - 1) // train_batch_size + 1 == num_train_batches, "Invalid data_loader"
-        batch_size = train_batch_size * grad_accumulation_steps
-        final_batch_iters = (dataset_size - 1) // batch_size * batch_size + 1
-        final_batch_size = dataset_size - final_batch_iters + 1
+    dataset_size = len(data_loader.dataset)
+    num_train_batches = len(data_loader)
+    batch_size = data_loader.batch_size
+    assert (dataset_size - 1) // batch_size + 1 == num_train_batches, "Invalid data_loader"
+    #batch_size = train_batch_size * grad_accumulation_steps
+    final_batch_iters = (dataset_size - 1) // batch_size * batch_size + 1
+    final_batch_size = dataset_size - final_batch_iters + 1
 
+    if num_batch_division > 1:
+        start_indices_default = _compute_start_indices(batch_size, num_batch_division)
+        batch_sizes_default = np.diff(start_indices_default)
+        
+        start_indices_final = [ idx for idx in start_indices_default if idx < final_batch_size ] + [final_batch_size]
+        batch_sizes_final = np.diff(start_indices_final)
 
     def _update(engine, batch):
-        model.train()# needed every time ? After calling evaluator run, back to train mode for example...
 
-        Is_update = False
-        loss_weight = 1.
-        if engine.state.iteration % grad_accumulation_steps == 0:
-            loss_weight /= grad_accumulation_steps
-            Is_update = True
-        elif engine.state.iteration >= final_batch_iters:
-            loss_weight = len(batch) / final_batch_size
-            if engine.state.iteration == num_train_batches:
-                Is_update = True
+        inputs = input_transform(batch)
+        outputs = {}
+        if Add_update_name_in_loss:
+            loss = {}
+        else:
+            loss = []
+        for N, update_info in enumerate(update_info_list, 1):
+            if 'skip_condition' in update_info:
+                skip_condition = update_info['skip_condition']
+                if skip_condition(engine.state):
+                    continue
 
-        inputs, labels = input_transform(batch)
-        outputs = model(inputs)
-        loss = loss_fn({"inputs" : inputs,"outputs":outputs, "labels":labels}) * loss_weight
-        loss.backward()
+            model = update_info['model']
+            optimizer = update_info['optimizer']
+            loss_fn = update_info['loss_fn']
+            
+            model.train()# needed every time ? After calling evaluator run, back to train mode for example...
+            
+            if num_batch_division == 1:
+                outputs_stage = model(inputs)
+                loss_stage = loss_fn({"inputs":inputs, "outputs":outputs_stage})
+                loss_stage.backward()
+                if not retain_comp_graph:
+                    loss_stage = loss_stage.detach()
+            else:
+                if engine.state.iteration % num_train_batches != 0:
+                    start_indices = start_indices_default
+                    batch_sizes = batch_sizes_default
+                else:
+                    start_indices = start_indices_final
+                    batch_sizes = batch_sizes_final
 
-        if Is_update:
+                print(batch_sizes)###
+                outputs_stage = []
+                loss_stage = []
+                for inputs_, bs in zip(_partition_batch(inputs, start_indices), batch_sizes):
+                    outputs_stage_ = model(inputs_)
+                    loss_stage_ = loss_fn({"inputs":inputs_, "outputs":outputs_stage_}) * bs / start_indices[-1]
+                    loss_stage_.backward()
+                    if not retain_comp_graph:
+                        outputs_stage_ = _apply_transform(outputs_stage_, retain_comp_graph=False)
+                        loss_stage_ = loss_stage_.detach()
+                    outputs_stage.append(outputs_stage_)
+                    loss_stage.append(loss_stage_)
+                    print(loss_stage_)###
+                outputs_stage = _concat_results(outputs_stage)
+                loss_stage = sum(loss_stage)
+
             optimizer.step()
             optimizer.zero_grad()
 
-        return output_transform({"inputs":inputs, "outputs":outputs, "labels":labels, "loss":loss})
+            update_stage_name = update_info.get('name', str(N))
+            if Add_update_name_in_outputs:
+                outputs.update({ update_stage_name : outputs_stage })
+            else:
+                outputs.update(outputs_stage)
+            if Add_update_name_in_loss:
+                loss.update({ update_stage_name : loss_stage })
+            else:
+                loss.append(loss_stage)
+
+        return {"inputs":inputs, "outputs":outputs, "loss":loss}
 
     return Engine(_update)
 
 
 
-def create_evaluator(model, metrics={}, device=None, non_blocking=False,
-                     input_transform=input_default_wrapper, output_transform=lambda results: results, **kwargs):
+
+def create_evaluator(evaluate_info_list, metrics={}, device=None, input_transform=input_default_wrapper, **kwargs):
     """
     Factory function for creating an evaluator for supervised models.
 
@@ -100,15 +153,24 @@ def create_evaluator(model, metrics={}, device=None, non_blocking=False,
     Returns:
         Engine: an evaluator engine with supervised inference function.
     """
-    if device:
-        model.to(device)
+    #if device:
+    #    model.to(device)
 
     def _inference(engine, batch):
-        model.eval()
-        with torch.no_grad():
-            inputs, labels = input_transform(batch)
-            outputs = model(inputs)
-        return output_transform({"inputs":inputs, "outputs":outputs, "labels":labels})
+        for N, evaluate_info in enumerate(evaluate_info_list, 1):
+            if 'skip_condition' in evaluate_info:
+                skip_condition = evaluate_info['skip_condition']
+                if skip_condition(engine.state):
+                    continue
+
+            model = evaluate_info['model']
+            loss_fn = evaluate_info['loss_fn']
+
+            model.eval()
+            with torch.no_grad():
+                inputs = input_transform(batch)
+                outputs = model(inputs)
+            return {"inputs":inputs, "outputs":outputs}
 
     engine = Engine(_inference)
 
@@ -118,8 +180,10 @@ def create_evaluator(model, metrics={}, device=None, non_blocking=False,
     return engine
 
 
-
-def setup(config):
+"""
+    * rename the function
+"""
+def setup(config ,update_info_list, evaluate_info_list):
     objects = config["object"]
     model = objects["model"]
     optimizer = objects["optimizer"]
@@ -130,10 +194,9 @@ def setup(config):
     train_loader = objects["train_loader"]
     #metrics_log = objects["metrics_log"]
     
-    trainer = create_trainer(model, optimizer, loss, device=device, data_loader=train_loader,
-                             grad_accumulation_steps=grad_accumulation_steps)
-    train_evaluator = create_evaluator(model, metrics=metrics, device=device)#, metrics_log=metrics_log)
-    val_evaluator = create_evaluator(model, metrics=metrics, device=device)#, metrics_log=metrics_log)
+    trainer = create_trainer_imp(update_info_list, device=device, data_loader=train_loader, grad_accumulation_steps=grad_accumulation_steps)
+    train_evaluator = create_evaluator_imp(evaluate_info_list, metrics=metrics, device=device)#, metrics_log=metrics_log)
+    val_evaluator = create_evaluator_imp(evaluate_info_list, metrics=metrics, device=device)#, metrics_log=metrics_log)
     
     config["object"]["engine"] = {
         "trainer" : trainer,
@@ -142,4 +205,5 @@ def setup(config):
     }
     
     return trainer
+
 

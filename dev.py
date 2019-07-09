@@ -211,6 +211,7 @@ def create_trainer_imp(update_info_list,  data_loader, device=None, input_transf
                     start_indices = start_indices_final
                     batch_sizes = batch_sizes_final
 
+                print(batch_sizes)###
                 outputs_stage = []
                 loss_stage = []
                 for inputs_, bs in zip(_partition_batch(inputs, start_indices), batch_sizes):
@@ -222,6 +223,7 @@ def create_trainer_imp(update_info_list,  data_loader, device=None, input_transf
                         loss_stage_ = loss_stage_.detach()
                     outputs_stage.append(outputs_stage_)
                     loss_stage.append(loss_stage_)
+                    print(loss_stage_)###
                 outputs_stage = _concat_results(outputs_stage)
                 loss_stage = sum(loss_stage)
 

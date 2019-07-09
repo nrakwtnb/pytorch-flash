@@ -125,24 +125,24 @@ def create_default_events(config):
 
         if 'early_stopping' in handlers.keys():
             hdl_early_stopping = handlers['early_stopping']
-            early_stopping_patience = hdl_early_stopping['early_stopping_patience']
+            patience = hdl_early_stopping['patience']
             if 'score_function' in hdl_early_stopping.keys():
                 score_function = hdl_early_stopping['score_function']
             else:
                 score_function = lambda engine:-engine.state.metrics['loss']
-            ES_handler = EarlyStopping(patience=early_stopping_patience, score_function=score_function, trainer=trainer)
+            ES_handler = EarlyStopping(patience=patience, score_function=score_function, trainer=trainer)
             val_evaluator.add_event_handler(Events.COMPLETED, ES_handler)
 
         if 'checkpoint' in handlers.keys():
             hdl_checkpoint = handlers['checkpoint']
-            model_checkpoint_save_interval = hdl_checkpoint.get('model_checkpoint_save_interval',1)
-            model_checkpoint_n_saved = hdl_checkpoint.get('model_checkpoint_n_saved', float('inf'))
+            save_interval = hdl_checkpoint.get('save_interval',1)
+            n_saved = hdl_checkpoint.get('n_saved', float('inf'))
             model_name_prefix = hdl_checkpoint.get("prefix", '')
             model_name = hdl_checkpoint.get("name", 'model')
             model_dir = hdl_checkpoint.get("save_dir", 'checkpoints')
 
             model = config['object']['model']
-            MC_handler = ModelCheckpoint(model_dir, model_name_prefix, save_interval=model_checkpoint_save_interval, n_saved=model_checkpoint_n_saved, create_dir=True)
+            MC_handler = ModelCheckpoint(model_dir, model_name_prefix, save_interval=save_interval, n_saved=n_saved, create_dir=True)
             trainer.add_event_handler(Events.EPOCH_COMPLETED, MC_handler, {model_name : model})
 
 
