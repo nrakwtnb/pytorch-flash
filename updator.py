@@ -9,33 +9,30 @@ from utils import input_default_wrapper
         + In this case, assert dataloader is not None
     * ? package args as config
 """
+"""
+Factory function for creating a trainer for supervised models.
+
+Args:
+    device (str, optional): device type specification (default: None).
+        Applies to both model and batches.
+    non_blocking (bool, optional): if True and this copy is between CPU and GPU, the copy may occur asynchronously
+        with respect to the host. For other cases, this argument has no effect.
+    prepare_batch (callable, optional): function that receives `batch`, `device`, `non_blocking` and outputs
+        tuple of tensors `(batch_x, batch_y)`.
+    output_transform (callable, optional): function that receives 'x', 'y', 'y_pred', 'loss' and returns value
+        engine.to be assigned to engine's state.output after each iteration. Default is returning `loss.item()`.
+
+Note: `engine.state.output` for this engine is defind by `output_transform` parameter and is the loss
+    of the processed batch by default.
+
+Returns:
+    Engine: a trainer engine with supervised update function.
+"""
 from utils import _compute_start_indices, _partition_batch, _concat_results
 from utils import input_default_wrapper
 from utils import _apply_transform
 import numpy as np
 def create_trainer(update_info_list,  data_loader, device=None, input_transform=input_default_wrapper, retain_comp_graph=False, Add_update_name_in_outputs=False, Add_update_name_in_loss=False, **kwargs):
-    """
-    Factory function for creating a trainer for supervised models.
-
-    Args:
-        model (`torch.nn.Module`): the model to train.
-        optimizer (`torch.optim.Optimizer`): the optimizer to use.
-        loss_fn (torch.nn loss function): the loss function to use.
-        device (str, optional): device type specification (default: None).
-            Applies to both model and batches.
-        non_blocking (bool, optional): if True and this copy is between CPU and GPU, the copy may occur asynchronously
-            with respect to the host. For other cases, this argument has no effect.
-        prepare_batch (callable, optional): function that receives `batch`, `device`, `non_blocking` and outputs
-            tuple of tensors `(batch_x, batch_y)`.
-        output_transform (callable, optional): function that receives 'x', 'y', 'y_pred', 'loss' and returns value
-            engine.to be assigned to engine's state.output after each iteration. Default is returning `loss.item()`.
-
-    Note: `engine.state.output` for this engine is defind by `output_transform` parameter and is the loss
-        of the processed batch by default.
-
-    Returns:
-        Engine: a trainer engine with supervised update function.
-    """
     #if device:
     #    model.to(device)
 
@@ -130,29 +127,29 @@ def create_trainer(update_info_list,  data_loader, device=None, input_transform=
 
 
 
+"""
+Factory function for creating an evaluator for supervised models.
+
+Args:
+    model (`torch.nn.Module`): the model to train.
+    metrics (dict of str - :class:`~ignite.metrics.Metric`): a map of metric names to Metrics.
+    device (str, optional): device type specification (default: None).
+        Applies to both model and batches.
+    non_blocking (bool, optional): if True and this copy is between CPU and GPU, the copy may occur asynchronously
+        with respect to the host. For other cases, this argument has no effect.
+    prepare_batch (callable, optional): function that receives `batch`, `device`, `non_blocking` and outputs
+        tuple of tensors `(batch_x, batch_y)`.
+    output_transform (callable, optional): function that receives 'x', 'y', 'y_pred' and returns value
+        to be assigned to engine's state.output after each iteration. Default is returning `(y_pred, y,)` which fits
+        output expected by metrics. If you change it you should use `output_transform` in metrics.
+
+Note: `engine.state.output` for this engine is defind by `output_transform` parameter and is
+    a tuple of `(batch_pred, batch_y)` by default.
+
+Returns:
+    Engine: an evaluator engine with supervised inference function.
+"""
 def create_evaluator(evaluate_info_list, metrics={}, device=None, input_transform=input_default_wrapper, **kwargs):
-    """
-    Factory function for creating an evaluator for supervised models.
-
-    Args:
-        model (`torch.nn.Module`): the model to train.
-        metrics (dict of str - :class:`~ignite.metrics.Metric`): a map of metric names to Metrics.
-        device (str, optional): device type specification (default: None).
-            Applies to both model and batches.
-        non_blocking (bool, optional): if True and this copy is between CPU and GPU, the copy may occur asynchronously
-            with respect to the host. For other cases, this argument has no effect.
-        prepare_batch (callable, optional): function that receives `batch`, `device`, `non_blocking` and outputs
-            tuple of tensors `(batch_x, batch_y)`.
-        output_transform (callable, optional): function that receives 'x', 'y', 'y_pred' and returns value
-            to be assigned to engine's state.output after each iteration. Default is returning `(y_pred, y,)` which fits
-            output expected by metrics. If you change it you should use `output_transform` in metrics.
-
-    Note: `engine.state.output` for this engine is defind by `output_transform` parameter and is
-        a tuple of `(batch_pred, batch_y)` by default.
-
-    Returns:
-        Engine: an evaluator engine with supervised inference function.
-    """
     #if device:
     #    model.to(device)
 
@@ -182,6 +179,7 @@ def create_evaluator(evaluate_info_list, metrics={}, device=None, input_transfor
 
 """
     * rename the function
+    * attach this func to the config class as its method
 """
 def setup(config ,update_info_list, evaluate_info_list):
     objects = config["object"]
