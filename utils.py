@@ -118,4 +118,15 @@ def _concat_results(results: list):
         return list(map(_concat_results, zip(*results)))
 
 
+def wrap_metrics(func, get_y_values):
+    def _wrap_metrics(results, *args, **kwargs):
+        return func(*get_y_values(results, *args, **kwargs))
+    return _wrap_metrics
+
+# default
+def get_y_values(results):
+    y_pred = results['outputs']['y']
+    y_true = results['inputs']['y']
+    return y_pred, y_true.to(y_pred.device)
+
 

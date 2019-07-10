@@ -1,7 +1,14 @@
 
-from ignite.engine.engine import Engine
-from utils import input_default_wrapper
+import numpy as np
 
+import torch
+from ignite.engine.engine import Engine
+
+from utils import _compute_start_indices, _partition_batch, _concat_results
+from utils import input_default_wrapper
+from utils import _apply_transform
+
+DEBUG = True
 
 """
     working...
@@ -28,10 +35,6 @@ Note: `engine.state.output` for this engine is defind by `output_transform` para
 Returns:
     Engine: a trainer engine with supervised update function.
 """
-from utils import _compute_start_indices, _partition_batch, _concat_results
-from utils import input_default_wrapper
-from utils import _apply_transform
-import numpy as np
 def create_trainer(update_info_list,  data_loader, device=None, input_transform=input_default_wrapper, retain_comp_graph=False, Add_update_name_in_outputs=False, Add_update_name_in_loss=False, **kwargs):
     #if device:
     #    model.to(device)
@@ -91,7 +94,8 @@ def create_trainer(update_info_list,  data_loader, device=None, input_transform=
                     start_indices = start_indices_final
                     batch_sizes = batch_sizes_final
 
-                print(batch_sizes)###
+                if DEBUG:
+                    print(batch_sizes)###
                 outputs_stage = []
                 loss_stage = []
                 for inputs_, bs in zip(_partition_batch(inputs, start_indices), batch_sizes):
@@ -103,7 +107,8 @@ def create_trainer(update_info_list,  data_loader, device=None, input_transform=
                         loss_stage_ = loss_stage_.detach()
                     outputs_stage.append(outputs_stage_)
                     loss_stage.append(loss_stage_)
-                    print(loss_stage_)###
+                    if DEBUG:
+                        print(loss_stage_)###
                 outputs_stage = _concat_results(outputs_stage)
                 loss_stage = sum(loss_stage)
 
@@ -176,32 +181,5 @@ def create_evaluator(evaluate_info_list, metrics={}, device=None, input_transfor
 
     return engine
 
-
-"""
-    * rename the function
-    * attach this func to the config class as its method
-"""
-def setup(config ,update_info_list, evaluate_info_list):
-    objects = config["object"]
-    model = objects["model"]
-    optimizer = objects["optimizer"]
-    loss = objects["loss"]
-    device = config["device"]["name"]
-    grad_accumulation_steps = config["other"]["grad_accumulation_steps"]
-    metrics = objects["metrics"]
-    train_loader = objects["train_loader"]
-    #metrics_log = objects["metrics_log"]
-    
-    trainer = create_trainer_imp(update_info_list, device=device, data_loader=train_loader, grad_accumulation_steps=grad_accumulation_steps)
-    train_evaluator = create_evaluator_imp(evaluate_info_list, metrics=metrics, device=device)#, metrics_log=metrics_log)
-    val_evaluator = create_evaluator_imp(evaluate_info_list, metrics=metrics, device=device)#, metrics_log=metrics_log)
-    
-    config["object"]["engine"] = {
-        "trainer" : trainer,
-        "train_evaluator" : train_evaluator,
-        "val_evaluator" : val_evaluator
-    }
-    
-    return trainer
 
 

@@ -6,6 +6,10 @@ from ignite.handlers import EarlyStopping, ModelCheckpoint
 tensorboardX_flags = ['t', 'tf', 'tensorboard', 'tensorboardX']
 visdom_flags = ['v', 'vis', 'visdom']
 
+"""
+    * flush setting on tdqm ?
+"""
+
 
 
 def create_default_events(config):
