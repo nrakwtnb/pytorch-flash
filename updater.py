@@ -8,7 +8,7 @@ from utils import _compute_start_indices, _partition_batch, _concat_results
 from utils import input_default_wrapper
 from utils import _apply_transform
 
-DEBUG = True
+DEBUG = False
 
 """
     working...
@@ -35,7 +35,7 @@ Note: `engine.state.output` for this engine is defind by `output_transform` para
 Returns:
     Engine: a trainer engine with supervised update function.
 """
-def create_trainer(update_info_list,  data_loader, device=None, input_transform=input_default_wrapper, retain_comp_graph=False, Add_update_name_in_outputs=False, Add_update_name_in_loss=False, **kwargs):
+def create_trainer(update_info_list,  data_loader, input_transform=input_default_wrapper, retain_comp_graph=False, Add_update_name_in_outputs=False, Add_update_name_in_loss=False, **kwargs):
     #if device:
     #    model.to(device)
 
@@ -154,7 +154,7 @@ Note: `engine.state.output` for this engine is defind by `output_transform` para
 Returns:
     Engine: an evaluator engine with supervised inference function.
 """
-def create_evaluator(evaluate_info_list, metrics={}, device=None, input_transform=input_default_wrapper, **kwargs):
+def create_evaluator(evaluate_info_list, metrics={}, input_transform=input_default_wrapper, **kwargs):
     #if device:
     #    model.to(device)
 
