@@ -154,11 +154,12 @@ Note: `engine.state.output` for this engine is defind by `output_transform` para
 Returns:
     Engine: an evaluator engine with supervised inference function.
 """
-def create_evaluator(evaluate_info_list, metrics={}, input_transform=input_default_wrapper, **kwargs):
+def create_evaluator(evaluate_info_list, metrics={}, input_transform=input_default_wrapper, Add_eval_name_in_outputs=False, **kwargs):
     #if device:
     #    model.to(device)
 
     def _inference(engine, batch):
+        outputs = {}
         for N, evaluate_info in enumerate(evaluate_info_list, 1):
             if 'skip_condition' in evaluate_info:
                 skip_condition = evaluate_info['skip_condition']
@@ -171,8 +172,14 @@ def create_evaluator(evaluate_info_list, metrics={}, input_transform=input_defau
             model.eval()
             with torch.no_grad():
                 inputs = input_transform(batch)
-                outputs = model(inputs)
-            return {"inputs":inputs, "outputs":outputs}
+                outputs_stage = model(inputs)
+
+            eval_stage_name = evaluate_info.get('name', str(N))
+            if Add_eval_name_in_outputs:
+                outputs.update({ evaluate_stage_name : outputs_stage })
+            else:
+                outputs.update(outputs_stage)
+        return {"inputs":inputs, "outputs":outputs}
 
     engine = Engine(_inference)
 

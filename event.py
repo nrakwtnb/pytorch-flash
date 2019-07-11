@@ -13,7 +13,7 @@ visdom_flags = ['v', 'vis', 'visdom']
 
 
 def create_default_events(config):
-    vis_tool = config['other']['vis_tool']
+    vis_tool = config['others']['vis_tool']
     if vis_tool in tensorboardX_flags:
         try:
             from tensorboardX import SummaryWriter
@@ -30,17 +30,18 @@ def create_default_events(config):
 
     log_dir = "tf_log"
 
-    #trainer = config["object"]["trainer"]
-    grad_accumulation_steps = config["other"]["grad_accumulation_steps"]
-    train_loader = config["object"]["train_loader"]
-    val_loader = config["object"]["val_loader"]
-    train_evaluator = config["object"]["engine"]["train_evaluator"]
-    val_evaluator = config["object"]["engine"]["val_evaluator"]
-    trainer = config['object']['engine']['trainer']
+    #trainer = config['objects']['trainer']
+    objects = config['objects']
+    grad_accumulation_steps = config['others']['grad_accumulation_steps']
+    train_loader = objects['data']['train_loader']
+    val_loader = objects['data']['val_loader']
+    train_evaluator = objects['engine']['train_evaluator']
+    val_evaluator = objects['engine']['val_evaluator']
+    trainer = objects['engine']['trainer']
 
 
     num_train_batches = len(train_loader)# -> config
-    log_interval = config["other"]["log_interval"]
+    log_interval = config['others']['log_interval']
     
     if vis_tool in tensorboardX_flags:
         def create_summary_writer(model, data_loader, log_dir):
@@ -52,8 +53,9 @@ def create_default_events(config):
             #except Exception as e:
             #    print("Failed to save model graph: {}".format(e))
         return writer
+        # model ..
         writer = create_summary_writer(model, train_loader, log_dir)
-        config['object']['vis_tool'] = writer
+        objects['vis_tool'] = writer
     elif vis_tool in visdom_flags:
         vis = visdom.Visdom()
         def create_plot_window(vis, xlabel, ylabel, title):
@@ -62,18 +64,21 @@ def create_default_events(config):
         train_avg_loss_window = create_plot_window(vis, '#Iterations', 'Loss', 'Training Average Loss')
         train_avg_accuracy_window = create_plot_window(vis, '#Iterations', 'Accuracy', 'Training Average Accuracy')
         val_avg_loss_window = create_plot_window(vis, '#Epochs', 'Loss', 'Validation Average Loss')
-        config['object']['vis_tool'] = vis
+        objects['vis_tool'] = vis
     else:
         desc = "ITERATION - loss: "#{:.2f}"
         pbar = tqdm(
             initial=0, leave=False, total=len(train_loader)#,
             #desc=desc.format(0)
         )
-        config['object']['vis_tool'] = pbar
+        objects['vis_tool'] = pbar
 
     import torch
     @trainer.on(Events.ITERATION_COMPLETED)
     def log_training_loss(engine):
+        """
+            ### ToDo : check the following process
+        """
         epoch = engine.state.epoch
         iter_ = engine.state.iteration
         iter_ = ((iter_ - 1) % num_train_batches) // grad_accumulation_steps + 1
@@ -123,7 +128,9 @@ def create_default_events(config):
         print_logs(config, engine, metrics, phase='validation')
         if vis_tool not in tensorboardX_flags and visdom_flags not in visdom_flags:
             pbar.n = pbar.last_print_n = 0
+
     
+
     if "handlers" in config.keys():
         handlers =  config['handlers']
 
@@ -141,20 +148,21 @@ def create_default_events(config):
             hdl_checkpoint = handlers['checkpoint']
             save_interval = hdl_checkpoint.get('save_interval',1)
             n_saved = hdl_checkpoint.get('n_saved', float('inf'))
-            model_name_prefix = hdl_checkpoint.get("prefix", '')
-            model_name = hdl_checkpoint.get("name", 'model')
-            model_dir = hdl_checkpoint.get("save_dir", 'checkpoints')
+            target_models = hdl_checkpoint.get('target_models', )
+            model_name_prefix = hdl_checkpoint.get('prefix', "")
+            model_name = hdl_checkpoint.get('name', "model")
+            model_dir = hdl_checkpoint.get('save_dir', "checkpoints")
 
-            model = config['object']['model']
+            #model = config['objects']['model']
             MC_handler = ModelCheckpoint(model_dir, model_name_prefix, save_interval=save_interval, n_saved=n_saved, create_dir=True)
-            trainer.add_event_handler(Events.EPOCH_COMPLETED, MC_handler, {model_name : model})
+            trainer.add_event_handler(Events.EPOCH_COMPLETED, MC_handler, objects['models'])#{model_name : model})
 
 
 
 def print_logs(config, engine, metrics, phase):
-    vis_tool = config['other']['vis_tool']
-    objects = config['object']
-    metrics_log = objects.get("metrics_log", None)
+    vis_tool = config['others']['vis_tool']
+    objects = config['objects']
+    metrics_log = objects.get('metrics_log', None)
 
     if metrics_log is not None:
         for name, value in metrics.items():
@@ -162,7 +170,7 @@ def print_logs(config, engine, metrics, phase):
 
     epoch = engine.state.epoch
     
-    print_message = f"{phase} results - Epoch: {epoch}" +\
+    print_message = f"Epoch: {epoch} :: {phase} results - " +\
         " ".join([f"{name}: {value:.4f}" for name, value in metrics.items() if isinstance(value, float)])
     
     if vis_tool in tensorboardX_flags:
@@ -179,15 +187,15 @@ def print_logs(config, engine, metrics, phase):
 
     
 def close_logger():
-    vis_tool = config['other']['vis_tool']
+    vis_tool = config['others']['vis_tool']
     if vis_tool in tensorboardX_flags:
-        writer = config['object']['vis_tool']
+        writer = config['objects']['vis_tool']
         writer.close()
     elif vis_tool in visdom_flags:
-        vis = config['object']['vis_tool']
+        vis = config['objects']['vis_tool']
         pass
     else:
-        pbar = config['object']['vis_tool']
+        pbar = config['objects']['vis_tool']
         pbar.close()
 
 
