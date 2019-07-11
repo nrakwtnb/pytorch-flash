@@ -13,7 +13,6 @@
 	+ multi gpu
 
 * training
-	+ modify iterations when grad_accumulation_steps > 1
 
 * config
 
@@ -28,7 +27,7 @@
 	+ optimizer.grad_zero() at epoch starts
 
 * visualization
-	+ test : isdom
+	+ test : visdom
 	+ add : tensorwatch
 
 * backend integration
