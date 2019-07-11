@@ -1,4 +1,5 @@
 *.swp
 work/
+*_debug
 tags
 __pycache__
