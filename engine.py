@@ -36,8 +36,6 @@ Returns:
     Engine: a trainer engine with supervised update function.
 """
 def create_trainer(update_info_list,  data_loader, input_transform=input_default_wrapper, retain_comp_graph=False, Add_update_name_in_outputs=False, Add_update_name_in_loss=False, **kwargs):
-    #if device:
-    #    model.to(device)
 
     grad_accumulation_steps = kwargs.get('grad_accumulation_steps', 1)
     num_batch_division = grad_accumulation_steps
@@ -155,8 +153,6 @@ Returns:
     Engine: an evaluator engine with supervised inference function.
 """
 def create_evaluator(evaluate_info_list, metrics={}, input_transform=input_default_wrapper, Add_eval_name_in_outputs=False, **kwargs):
-    #if device:
-    #    model.to(device)
 
     def _inference(engine, batch):
         outputs = {}

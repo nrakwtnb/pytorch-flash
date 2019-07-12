@@ -7,9 +7,13 @@ tensorboardX_flags = ['t', 'tf', 'tensorboard', 'tensorboardX']
 visdom_flags = ['v', 'vis', 'visdom']
 
 """
+    ToDo
+        * correct tensorboard flow
+        * correct visdom flow
+        * add tensorwatch flow
+    Investigate
     * flush setting on tdqm ?
 """
-
 
 
 def create_default_events(config):
@@ -30,7 +34,6 @@ def create_default_events(config):
 
     log_dir = "tf_log"
 
-    #trainer = config['objects']['trainer']
     objects = config['objects']
     grad_accumulation_steps = config['others']['grad_accumulation_steps']
     train_loader = objects['data']['train_loader']
@@ -186,16 +189,15 @@ def print_logs(config, engine, metrics, phase):
         tqdm.write(print_message)
 
     
-def close_logger():
-    vis_tool = config['others']['vis_tool']
+def close_logger(vis_tool):
     if vis_tool in tensorboardX_flags:
-        writer = config['objects']['vis_tool']
+        writer = vis_tool
         writer.close()
     elif vis_tool in visdom_flags:
-        vis = config['objects']['vis_tool']
+        vis = vis_tool
         pass
     else:
-        pbar = config['objects']['vis_tool']
+        pbar = vis_tool
         pbar.close()
 
 

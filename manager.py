@@ -15,7 +15,7 @@ from metrics import Loss
     * __getter__
     * __setter__
 """
-class Config():
+class TrainManager():
     def __init__(self):
         pass
 
@@ -61,7 +61,6 @@ class Config():
         assert isinstance(loss_fn_name ,str)
         config = self.config
         loss_fn_ = wrap_metrics(loss_fn, output_transform)
-        #config['objects']['loss_fns_info'].update({loss_fn_name : (loss_fn, output_transform)})
         config['objects']['loss_fns'].update({loss_fn_name : loss_fn_})
 
     def add_update_info(self, **update_info):
@@ -81,8 +80,17 @@ class Config():
         evaluate_info_list = config['trainer']['evaluate_info_list']
         evaluate_info_list.append(evaluate_info)
 
+    def set_dataloader(self, train_loader, val_loader):### val_train_loader
+        config = self.config
+        config["objects"].update({
+            'data' : {
+                'train_loader' : train_loader,
+                'val_loader' : val_loader
+            }
+        })
+
     #def setup_metrics(self, loss_fn, output_transform=get_y_values):
-    def setup_metrics(self, output_transform=get_y_values, target_loss_fn_names=None):## working
+    def setup_metrics(self, output_transform=get_y_values, target_loss_fn_names=None):
         """
             ToDo
                 * Add other metrics ...
@@ -101,41 +109,16 @@ class Config():
             for name, loss_fn in loss_fns.items():
                 metrcis.update({ f"{name}-loss" : Loss(loss_fn) })###
 
-        """
-        if target_eval_stage_names is None:
-            if len(evaluate_info_list) == 1:
-                loss_fn = evaluate_info_list[0]['loss_fn']
-                metrics.update({ 'loss' : Loss(loss_fn, output_transform=output_transform) })
-            else:
-                target_eval_stage_names = map(str, range(1, len()+1))
-        if target_eval_stage_names is not None:
-            for N, evaluate_info in enumerate(evaluate_info_list, 1):
-                eval_stage_name = evaluate_info.get('name', str(N))
-                if eval_stage_name in target_eval_stage_names:
-                    loss_fn = evaluate_info['metrics_loss_fn']
-                    metrcis.update({ f"{eval_stage_name}-loss" : Loss(loss_fn, output_transform=output_transform) })
-        """
-
         metrics.update({ 'accuracy' : Accuracy(output_transform=output_transform) })
         config['objects']['metrics'] = metrics
 
     # to rename the function later
     def check(self):
         config = self.config
-        """
-        if "grad_accumulation_steps" in config['others'].keys():
-            grad_accumulation_steps = config['others']['grad_accumulation_steps']
-            batch_size = config['train']['batch_size']
-            train_batch_size = batch_size // grad_accumulation_steps
-            assert train_batch_size * grad_accumulation_steps == batch_size
-            config['train']['train_batch_size'] = train_batch_size
-        else:
-            config['train']['train_batch_size'] = config['train']['batch_size']
-        """
 
-        config['train']['train_batch_size'] = config['train']['batch_size']
+        config['train']['train_batch_size'] = config['train']['batch_size']###
 
-        ### change ?
+        ### change ? (temporal)
         if config['device']['num_gpu'] > 0:
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
             if device == 'cuda':
@@ -151,7 +134,6 @@ class Config():
             
         config['objects'].update({'models' : {}})
         config['objects'].update({'loss_fns' : {}})
-        #config['objects'].update({'metrics_loss_fns' : {}})
         config['objects'].update({'optimizers' : {}})
         config['objects'].update({'metrics_log' : defaultdict(lambda :[])})
         config['trainer'].update({'update_info_list' : []})
@@ -189,15 +171,11 @@ class Config():
             evaluate_info_list.append(evaluate_info_)
         objects.update({'evaluate_info_list' : evaluate_info_list})
 
-    # to rename the function later
-    ###def setup_updater(self, update_info_list, evaluate_info_list):###
+    # to rename the function later if necessary
     def setup_engines(self):
         from engine import create_trainer, create_evaluator
         config = self.config
         objects = config['objects']
-        #model = objects['model']###
-        #optimizer = objects['optimizer']###
-        #loss = objects['loss']###
         device = config['device']['name']
         grad_accumulation_steps = config['others'].get('grad_accumulation_steps', 1)
         metrics = objects['metrics']
@@ -229,3 +207,6 @@ class Config():
 
         trainer.run(data=train_loader, max_epochs=epochs)
 
+    def close(self):
+        from event import close_logger
+        close_logger(vis_tool)
