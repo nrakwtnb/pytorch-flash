@@ -107,7 +107,7 @@ class TrainManager():
                 target_loss_fn_names = list(loss_fns.keys())
         if target_loss_fn_names is not None:
             for name, loss_fn in loss_fns.items():
-                metrcis.update({ f"{name}-loss" : Loss(loss_fn) })###
+                metrics.update({ f"{name}-loss" : Loss(loss_fn) })###
 
         metrics.update({ 'accuracy' : Accuracy(output_transform=output_transform) })
         config['objects']['metrics'] = metrics
