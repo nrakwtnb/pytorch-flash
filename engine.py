@@ -163,7 +163,7 @@ def create_evaluator(evaluate_info_list, metrics={}, input_transform=input_defau
                     continue
 
             model = evaluate_info['model']
-            loss_fn = evaluate_info['loss_fn']
+            #loss_fn = evaluate_info['loss_fn']
 
             model.eval()
             with torch.no_grad():

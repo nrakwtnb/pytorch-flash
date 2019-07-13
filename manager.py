@@ -14,6 +14,8 @@ from metrics import Loss
     * __dict__
     * __getter__
     * __setter__
+    * quick access to the field in config
+        + manager.config.objects.engine.trainer, for example
 """
 class TrainManager():
     def __init__(self):
@@ -22,11 +24,11 @@ class TrainManager():
     def load_config(self):
         pass
 
-    def set_config(self, config):
+    def set_config(self, config: dict):
         self.config = config
         self.check()
 
-    def add_model_from_generator(self, model_name, model_generator, model_args={}, device=None):
+    def add_model_from_generator(self, model_name:str, model_generator, model_args={}, device=None):
         assert isinstance(model_name ,str)
         config = self.config
         model = model_generator(**model_args)
@@ -47,21 +49,27 @@ class TrainManager():
         config['objects']['model'] = model
         """
 
-    def add_model(self, model_name, model, device=None):
+    def add_model(self, model_name:str, model, device=None):
         assert isinstance(model_name ,str)
         config = self.config
         config['objects']['models'].update({model_name : model})
 
-    def add_optimizer(self, optimizer_name, optimizer):
+    def add_optimizer(self, optimizer_name:str, optimizer):
         assert isinstance(optimizer_name ,str)
         config = self.config
         config['objects']['optimizers'].update({optimizer_name : optimizer})
 
-    def add_loss_fn(self, loss_fn_name, loss_fn, output_transform=get_y_values):
+    # keep
+    def add_loss_fn_old(self, loss_fn_name, loss_fn, output_transform=get_y_values):
         assert isinstance(loss_fn_name ,str)
         config = self.config
         loss_fn_ = wrap_metrics(loss_fn, output_transform)
         config['objects']['loss_fns'].update({loss_fn_name : loss_fn_})
+
+    def add_loss_fn(self, loss_fn_name, loss_fn):
+        assert isinstance(loss_fn_name ,str)
+        config = self.config
+        config['objects']['loss_fns'].update({loss_fn_name : loss_fn})
 
     def add_update_info(self, **update_info):
         assert 'model' in update_info
@@ -74,7 +82,6 @@ class TrainManager():
         
     def add_evaluate_info(self, **evaluate_info):
         assert 'model' in evaluate_info
-        assert 'loss_fn' in evaluate_info
         assert all(map(lambda x:isinstance(x, str), evaluate_info.values()))
         config = self.config
         evaluate_info_list = config['trainer']['evaluate_info_list']
@@ -89,27 +96,45 @@ class TrainManager():
             }
         })
 
-    #def setup_metrics(self, loss_fn, output_transform=get_y_values):
-    def setup_metrics(self, output_transform=get_y_values, target_loss_fn_names=None):
+    # temporal ?
+    def setup_metrics(self, target_metrics, output_transform=get_y_values, target_loss_fn_names=None):
         """
             ToDo
                 * Add other metrics ...
+                * Refactoring and make/unify the logic clear
         """
+        from metrics import get_precision, get_recall, get_F1score
         config = self.config
         loss_fns = self.config['objects']['loss_fns']
 
         metrics = {}
-        if target_loss_fn_names is None:
-            if len(loss_fns) == 1:
-                loss_fn = list(loss_fns.values())[0]
-                metrics.update({ 'loss' : Loss(loss_fn) })###
-            else:
-                target_loss_fn_names = list(loss_fns.keys())
-        if target_loss_fn_names is not None:
-            for name, loss_fn in loss_fns.items():
-                metrics.update({ f"{name}-loss" : Loss(loss_fn) })###
+        if 'loss' in target_metrics:
+            if target_loss_fn_names is None:
+                if len(loss_fns) == 1:
+                    loss_fn = list(loss_fns.values())[0]
+                    metrics.update({ 'loss' : Loss(loss_fn) })###
+                else:
+                    target_loss_fn_names = list(loss_fns.keys())
+            if target_loss_fn_names is not None:
+                for name, loss_fn in loss_fns.items():
+                    metrics.update({ f"{name}-loss" : Loss(loss_fn) })###
+        if 'accuracy' in target_metrics:
+            metrics.update({ 'accuracy' : Accuracy(output_transform=output_transform) })
+        Is_average = 'precision' in target_metrics
+        Is_classwise = 'precision_class' in target_metrics
+        if Is_average or Is_classwise:
+            metrics.update(get_precision(Is_average=Is_average, Is_classwise=Is_classwise, output_transform=output_transform))
+        Is_average = 'recall' in target_metrics
+        Is_classwise = 'recall_class' in target_metrics
+        if Is_average or Is_classwise:
+            metrics.update(get_recall(Is_average=Is_average, Is_classwise=Is_classwise, output_transform=output_transform))
+        Is_average = 'F1' in target_metrics
+        Is_classwise = 'F1_class' in target_metrics
+        if Is_average or Is_classwise:
+            metrics.update(get_F1score(Is_average=Is_average, Is_classwise=Is_classwise, output_transform=output_transform))
 
-        metrics.update({ 'accuracy' : Accuracy(output_transform=output_transform) })
+        print(f"set {tuple(list(metrics.keys()))}")
+
         config['objects']['metrics'] = metrics
 
     # to rename the function later
@@ -160,7 +185,6 @@ class TrainManager():
 
         key2obj = {
             'model' : objects['models'],
-            'loss_fn' : objects['loss_fns']
         }
 
         evaluate_info_list = []
