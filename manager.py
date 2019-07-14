@@ -1,4 +1,5 @@
 
+import os
 from collections import defaultdict
 
 import torch
@@ -71,6 +72,11 @@ class TrainManager():
         config = self.config
         config['objects']['loss_fns'].update({loss_fn_name : loss_fn})
 
+    def add_skip_condition(self, skip_condition_name, skip_condition):
+        assert isinstance(skip_condition_name ,str)
+        config = self.config
+        config['objects']['skip_condition'].update({skip_condition_name : skip_condition})
+
     def add_update_info(self, **update_info):
         assert 'model' in update_info
         assert 'loss_fn' in update_info
@@ -87,14 +93,15 @@ class TrainManager():
         evaluate_info_list = config['trainer']['evaluate_info_list']
         evaluate_info_list.append(evaluate_info)
 
-    def set_dataloader(self, train_loader, val_loader):### val_train_loader
+    def set_dataloader(self, train_loader, val_loader, eval_train_loader=None):
         config = self.config
-        config["objects"].update({
-            'data' : {
-                'train_loader' : train_loader,
-                'val_loader' : val_loader
-            }
-        })
+        data = {
+            'train_loader' : train_loader,
+            'val_loader' : val_loader
+        }
+        if eval_train_loader is not None:
+            data.update({'eval_train_loader' : eval_train_loader})
+        config["objects"].update({ 'data' : data })
 
     # temporal ?
     def setup_metrics(self, target_metrics, output_transform=get_y_values, target_loss_fn_names=None):
@@ -160,9 +167,31 @@ class TrainManager():
         config['objects'].update({'models' : {}})
         config['objects'].update({'loss_fns' : {}})
         config['objects'].update({'optimizers' : {}})
+        config['objects'].update({'skip_condition' : {}})
         config['objects'].update({'metrics_log' : defaultdict(lambda :[])})
         config['trainer'].update({'update_info_list' : []})
         config['trainer'].update({'evaluate_info_list' : []})
+
+        self._save_dir()
+
+    def _save_dir(self):
+        """
+            ToDo
+                * refactoring
+        """
+        config = self.config
+        save_dir = config['handlers']['checkpoint'].get('save_dir', None)
+        if save_dir is not None:
+            if os.path.exists(save_dir):
+                assert False, 'already exists !'
+            else:
+                os.makedirs(save_dir)
+        save_dir = config['handlers']['output'].get('save_dir', None)
+        if save_dir is not None:
+            os.makedirs(save_dir, exist_ok=True)
+        save_dir = config['others'].get('save_dir', None)
+        if save_dir is not None:
+            os.makedirs(save_dir, exist_ok=True)
 
     def set_objects(self):
         import copy
@@ -172,14 +201,16 @@ class TrainManager():
         key2obj = {
             'model' : objects['models'],
             'loss_fn' : objects['loss_fns'],
-            'optimizer' : objects['optimizers']
+            'optimizer' : objects['optimizers'],
+            'skip_condition' : objects['skip_condition']
         }
 
         update_info_list = []
         for update_info in trainer['update_info_list']:
             update_info_ = copy.copy(update_info)
             for key, obj in key2obj.items():
-                update_info_[key] = obj[update_info[key]]
+                if key in update_info:
+                    update_info_[key] = obj[update_info[key]]
             update_info_list.append(update_info_)
         objects.update({'update_info_list' : update_info_list})
 
@@ -196,7 +227,7 @@ class TrainManager():
         objects.update({'evaluate_info_list' : evaluate_info_list})
 
     # to rename the function later if necessary
-    def setup_engines(self):
+    def setup_engines(self, trainer_args={}, evaluator_args={}):
         from engine import create_trainer, create_evaluator
         config = self.config
         objects = config['objects']
@@ -208,9 +239,9 @@ class TrainManager():
         update_info_list = objects['update_info_list']
         evaluate_info_list = objects['evaluate_info_list']
         
-        trainer = create_trainer(update_info_list, data_loader=train_loader, grad_accumulation_steps=grad_accumulation_steps)
-        train_evaluator = create_evaluator(evaluate_info_list, metrics=metrics)
-        val_evaluator = create_evaluator(evaluate_info_list, metrics=metrics)
+        trainer = create_trainer(update_info_list, data_loader=train_loader, grad_accumulation_steps=grad_accumulation_steps, **trainer_args)
+        train_evaluator = create_evaluator(evaluate_info_list, metrics=metrics, **evaluator_args)
+        val_evaluator = create_evaluator(evaluate_info_list, metrics=metrics, **evaluator_args)
         
         objects['engine'] = {
             'trainer' : trainer,
@@ -233,4 +264,15 @@ class TrainManager():
 
     def close(self):
         from event import close_logger
-        close_logger(vis_tool)
+        import json
+        import os
+        config = self.config
+        others = config['others']
+        objects = config['objects']
+        if 'save_dir' in others:
+            metrics_log = objects['metrics_log']
+            save_path = os.path.join(others['save_dir'], 'metrics_log.json')
+            with open(save_path, 'w') as f:
+                json.dump(metrics_log, f)
+        
+        close_logger(objects['vis_tool'], others['vis_tool'])

@@ -38,16 +38,17 @@ def create_default_events(config):
     grad_accumulation_steps = config['others']['grad_accumulation_steps']
     train_loader = objects['data']['train_loader']
     val_loader = objects['data']['val_loader']
+    eval_train_loader = objects['data'].get('eval_train_loader', None)
     train_evaluator = objects['engine']['train_evaluator']
     val_evaluator = objects['engine']['val_evaluator']
     trainer = objects['engine']['trainer']
 
 
-    num_train_batches = len(train_loader)# -> config
+    num_train_batches = len(train_loader)
     log_interval = config['others']['log_interval']
     
     if vis_tool in tensorboardX_flags:
-        def create_summary_writer(model, data_loader, log_dir):
+        def create_summary_writer(log_dir):
             writer = SummaryWriter(logdir=log_dir)
             #data_loader_iter = iter(data_loader)
             #x, y = next(data_loader_iter)
@@ -56,8 +57,7 @@ def create_default_events(config):
             #except Exception as e:
             #    print("Failed to save model graph: {}".format(e))
         return writer
-        # model ..
-        writer = create_summary_writer(model, train_loader, log_dir)
+        writer = create_summary_writer(log_dir)
         objects['vis_tool'] = writer
     elif vis_tool in visdom_flags:
         vis = visdom.Visdom()
@@ -99,7 +99,7 @@ def create_default_events(config):
                 loss_val = { k:l.item() for k,l in results_loss.items() }
             else:
                 assert False, 'Invalid type for loss'
-            print_message = f"Epoch[{epoch}] Iteration[{iter_}/{num_train_batches}] Loss: "+"".join([ f"(k) {v:.2f}" for k,v in loss_val.items() ])
+            print_message = f"Epoch[{epoch}] Iteration[{iter_}/{num_train_batches}] Loss: "+"".join([ f" {k} = {v:.4f} " for k,v in loss_val.items() ])
 
         if iter_ % log_interval == 0:
             if vis_tool in tensorboardX_flags:
@@ -120,7 +120,7 @@ def create_default_events(config):
     def log_training_results(engine):
         if vis_tool not in tensorboardX_flags and visdom_flags not in visdom_flags:
             pbar.refresh()
-        train_evaluator.run(train_loader)
+        train_evaluator.run(train_loader if eval_train_loader is None else eval_train_loader)
         metrics = train_evaluator.state.metrics
         print_logs(config, engine, metrics, phase='train')
 
@@ -153,7 +153,7 @@ def create_default_events(config):
             save_interval = hdl_checkpoint.get('save_interval',1)
             n_saved = hdl_checkpoint.get('n_saved', float('inf'))
             target_models = hdl_checkpoint.get('target_models', list(objects['models'].keys()))
-            save_target_models = [ objects['models'][model_name] for model_name in target_models]
+            save_target_models = { model_name : objects['models'][model_name] for model_name in target_models }
             model_name_prefix = hdl_checkpoint.get('prefix', "")
             model_name = hdl_checkpoint.get('name', "model")
             model_dir = hdl_checkpoint.get('save_dir', "checkpoints")
@@ -191,11 +191,11 @@ def print_logs(config, engine, metrics, phase):
         tqdm.write(print_message)
 
     
-def close_logger(vis_tool):
-    if vis_tool in tensorboardX_flags:
+def close_logger(vis_tool, vis_tool_name):
+    if vis_tool_name in tensorboardX_flags:
         writer = vis_tool
         writer.close()
-    elif vis_tool in visdom_flags:
+    elif vis_tool_name in visdom_flags:
         vis = vis_tool
         pass
     else:
