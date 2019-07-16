@@ -3,25 +3,45 @@
 
 ## Goal
 
+This is an experimental project to realize:
+
 * fast implementations and experiments on Deep Learning projects
 * simple codes to understand and maintain with ease
+	* unified DL interfaces as possible
 
 ## Description
 
 * neural network learning implementations wrapper based on pytorch and pytorch-ignite
 * unofficial private project ( unrelated to the pytorch developer teams )
 
-### How To
+Caution:
+
+This is experimental and there occur unexpected behaviour. Please notice me them !
+
+## How To
 
 To appear ...
 
-## future work
+## Schedule
+
+* v0.0 alpha : August, 2019
+	+ add several functions
+	+ unify iterfaces as possible
+	+ several tests and debugs
+	+ make examples
+
+## Future Work
+
+* automatic flow generation
+
+* efficient debug functions
+	+ based on tensorwatch ?
 
 * parallel compuations
 	+ data parallel
 	+ multi GPUs
 
-* chainer backend
+* other DL framework backends, in particular, chainer
 
 * connection to model deployments
 

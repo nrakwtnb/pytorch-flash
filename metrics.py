@@ -3,16 +3,17 @@ import torch
 from ignite.exceptions import NotComputableError
 from ignite.metrics.metric import Metric
 
-def _get_batchsize(tensors):
-    if isinstance(tensors, torch.Tensor):
-        return len(tensors)
-    elif isinstance(tensors, dict):
-        return _get_batchsize(list(tensors.values())[0])
-    elif isinstance(tensors, list):
-        return _get_batchsize(tensors[0])
+from utils import _get_batchsize
+
+"""
+    ToDo
+        * search the better ways to implement metrics...
+        * recall, precision, F1 are independent
+            + I suspect if all precision, recall and F1 scores are computed, precision and recall are done twice, one of which comes through F1 ...
+"""
 
 
-
+# from ignite.metrics
 class Loss(Metric):
     """
     Calculates the average loss according to the passed loss_fn.
@@ -71,4 +72,43 @@ class Loss(Metric):
                 'Loss must have at least one example before it can be computed.')
         return self._sum / self._num_examples
 
+
+from ignite.metrics import Precision, Recall, MetricsLambda
+from utils import get_y_values
+
+def get_precision(Is_average=True, Is_classwise=False, output_transform=get_y_values):
+    metrics = {}
+    precision_class_ = Precision(average=False, output_transform=output_transform)
+    if Is_classwise:
+        precision_class = MetricsLambda(lambda t:list(t.numpy()), precision_class_)
+        metrics.update({ 'precision_class' : precision_class })
+    if Is_average:
+        precision = MetricsLambda(lambda t:torch.mean(t).item(), precision_class_)
+        metrics.update({ 'precision' : precision })
+    return metrics
+
+def get_recall(Is_average=True, Is_classwise=False, output_transform=get_y_values):
+    metrics = {}
+    recall_class_ = Recall(average=False, output_transform=output_transform)
+    if Is_classwise:
+        recall_class = MetricsLambda(lambda t:list(t.numpy()), recall_class_)
+        metrics.update({ 'recall_class' : recall_class })
+    if Is_average:
+        recall = MetricsLambda(lambda t:torch.mean(t).item(), recall_class_)
+        metrics.update({ 'recall' : recall })
+    return metrics
+
+def get_F1score(Is_average=True, Is_classwise=False, output_transform=get_y_values):
+    eps = 1e-7
+    precision_class_ = Precision(average=False, output_transform=output_transform)
+    recall_class_ = Recall(average=False, output_transform=output_transform)
+    F1_class_ = ( 2. * precision_class_ * recall_class_) / (precision_class_ + recall_class_ + eps)
+    metrics = {}
+    if Is_classwise:
+        F1_class = MetricsLambda(lambda t:list(t.numpy()), F1_class_)
+        metrics.update({ 'f1_class' : F1_class })
+    if Is_average:
+        F1 = MetricsLambda(lambda t:torch.mean(t).item(), F1_class_)
+        metrics.update({ 'f1' : F1 })
+    return metrics
 

@@ -14,7 +14,8 @@
 
 * training
 
-* config
+* manager
+	+ check the update_info names (if exist) are distinct each other
 
 * metrics
 	+ prepare many metrics (make it easy to logs ...)

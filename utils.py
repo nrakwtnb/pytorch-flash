@@ -123,6 +123,17 @@ def wrap_metrics(func, get_y_values):
         return func(*get_y_values(results, *args, **kwargs))
     return _wrap_metrics
 
+
+def _get_batchsize(tensors):
+    if isinstance(tensors, torch.Tensor):
+        return len(tensors)
+    elif isinstance(tensors, dict):
+        return _get_batchsize(list(tensors.values())[0])
+    elif isinstance(tensors, list):
+        return _get_batchsize(tensors[0])
+
+
+
 # default
 def get_y_values(results):
     y_pred = results['outputs']['y']

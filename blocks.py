@@ -17,7 +17,7 @@ class Block_Conv(nn.Module):
         kernel_size = conv_info['kernel_size']
         stride = conv_info.get('stride', 1)
         padding = conv_info.get('padding',0)
-        bias = conv_info.get(f'{conv_type}_bias', True)
+        bias = conv_info.get(f'{conv_type}_bias', False)
         layers = []
         
         if conv_type == 'conv':
