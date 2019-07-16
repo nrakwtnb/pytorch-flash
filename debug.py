@@ -47,11 +47,11 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, Normalize
 from torchvision.datasets import MNIST
 
-def get_data_loaders(train_batch_size, val_batch_size, mnist_path, train_dataset_size=None, val_dataset_size=None):
+def get_data_loaders(train_batch_size, val_batch_size, mnist_path, train_dataset_size=None, val_dataset_size=None, download=False):
     data_transform = Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
 
-    train_dataset = MNIST(download=False, root=mnist_path, transform=data_transform, train=True)
-    val_dataset = MNIST(download=False, root=mnist_path, transform=data_transform, train=False)
+    train_dataset = MNIST(download=download, root=mnist_path, transform=data_transform, train=True)
+    val_dataset = MNIST(download=download, root=mnist_path, transform=data_transform, train=False)
 
     import numpy as np
     if isinstance(train_dataset_size, int):

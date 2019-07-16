@@ -10,13 +10,16 @@ from metrics import Loss
 
 
 """
-    * __repr__
-    * __str__
-    * __dict__
-    * __getter__
-    * __setter__
-    * quick access to the field in config
-        + manager.config.objects.engine.trainer, for example
+    ToDo
+    * assign a device to each model model
+    * add the following properties
+        * __repr__
+        * __str__
+        * __dict__
+        * __getter__
+        * __setter__
+        * quick access to the field in config
+            + manager.config.objects.engine.trainer, for example
 """
 class TrainManager():
     def __init__(self):
@@ -41,8 +44,8 @@ class TrainManager():
         """
         if config['device']['num_gpu'] > 0:
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
-            if device == 'cuda':
-                model.cuda(config['device']['gpu'])
+            #if device == 'cuda':
+            #    model.cuda(config['device']['gpu'])
             config['device']['name'] = device
         else:
             config['device']['name'] = 'cpu'
@@ -153,8 +156,8 @@ class TrainManager():
         ### change ? (temporal)
         if config['device']['num_gpu'] > 0:
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
-            if device == 'cuda':
-                model.cuda(config['device']['gpu'])
+            #if device == 'cuda':
+            #    model.cuda(config['device']['gpu'])
             config['device']['name'] = device
         else:
             config['device']['name'] = 'cpu'
@@ -180,16 +183,16 @@ class TrainManager():
                 * refactoring
         """
         config = self.config
-        save_dir = config['handlers']['checkpoint'].get('save_dir', None)
+        save_dir = config.get('handlers', {}).get('checkpoint', {}).get('save_dir', None)
         if save_dir is not None:
             if os.path.exists(save_dir):
                 assert False, 'already exists !'
             else:
                 os.makedirs(save_dir)
-        save_dir = config['handlers']['output'].get('save_dir', None)
+        save_dir = config.get('handlers', {}).get('output', {}).get('save_dir', None)
         if save_dir is not None:
             os.makedirs(save_dir, exist_ok=True)
-        save_dir = config['others'].get('save_dir', None)
+        save_dir = config.get('others', {}).get('save_dir', None)
         if save_dir is not None:
             os.makedirs(save_dir, exist_ok=True)
 
