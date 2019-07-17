@@ -33,7 +33,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--mnist-path")
 args = parser.parse_args()
 
-from manager import import TrainManager
+from manager import TrainManager
 manager = TrainManager()
 manager.set_config(config)
 
@@ -46,7 +46,7 @@ train_loader, val_loader = get_data_loaders(train_batch_size=manager.config["tra
                                             train_dataset_size=np.random.randint(0,60000,20000),
                                             val_dataset_size=np.random.randint(0,10000,2000), download=True)
 
-from dataloader import import get_sampled_loader
+from dataloader import get_sampled_loader
 eval_train_loader = get_sampled_loader(train_loader, num_samples=2000)
 
 
@@ -55,11 +55,11 @@ manager.set_dataloader(train_loader=train_loader, val_loader=val_loader, eval_tr
 from debug import TestNet
 model = TestNet()
 
-from optimizers import import get_optimzier
+from optimizers import get_optimzier
 
 optimizer_info = {
     "name" : "SGD",
-    "info" : {
+    "args" : {
         "lr" : 0.01,
         "momentum" : 0.5    
     },
@@ -70,7 +70,7 @@ optimizer = get_optimzier(optimizer_info, model)
 manager.add_model('test', model)
 
 manager.add_optimizer('test', optimizer)
-from utils import import wrap_metrics, get_y_values
+from utils import wrap_metrics, get_y_values
 import torch.nn as nn
 manager.add_loss_fn('test', wrap_metrics(nn.NLLLoss(), get_y_values))
 

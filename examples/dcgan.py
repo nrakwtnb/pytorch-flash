@@ -35,7 +35,7 @@ config = {
     "others" : {
         "save_dir" : save_dir,
         "grad_accumulation_steps" : 1,
-        "val_batch_size" : 20,
+        "eval_batch_size" : 20,
         "log_interval" : 25,
         "vis_tool" : "None",
     }
@@ -46,7 +46,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--mnist-path")
 args = parser.parse_args()
 
-from manager import import TrainManager
+from manager import TrainManager
 manager = TrainManager()
 manager.set_config(config)
 
@@ -59,14 +59,14 @@ train_loader, val_loader = get_data_loaders(train_batch_size=manager.config["tra
                                             train_dataset_size=np.random.randint(0,60000,20000),
                                             val_dataset_size=np.random.randint(0,10000,2000), download=True)
 
-from dataloader import import get_sampled_loader
+from dataloader import get_sampled_loader
 eval_train_loader = get_sampled_loader(train_loader, num_samples=2000)
 
 
 manager.set_dataloader(train_loader=train_loader, val_loader=val_loader, eval_train_loader=eval_train_loader)
 
 
-from architectures import import Generator, Discriminator
+from architectures import Generator, Discriminator
 import torch.nn as nn
 
 latent_dim = 24
@@ -195,7 +195,7 @@ manager.add_model('ganG', ganG)
 
 
 
-from optimizers import import get_optimzier
+from optimizers import get_optimzier
 
 optimizer_info = {
     "name" : "Adam",
