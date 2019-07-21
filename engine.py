@@ -186,3 +186,22 @@ def create_evaluator(evaluate_info_list, metrics={}, input_transform=input_defau
 
 
 
+"""
+    ToDo
+        * ? add metrics evaluations
+"""
+def evaluation(model, dataloader, input_transform=input_default_wrapper, **kwargs):
+    def _inference(engine, batch):
+        model.eval()
+        with torch.no_grad():
+            inputs = input_transform(batch)
+            outputs = model(inputs)
+        if hasattr(engine.state, 'full_outputs'):
+            engine.state.full_outputs.append(outputs)
+        else:
+            engine.state.__setattr__('full_outputs', [outputs])
+        return {}
+    engine = Engine(_inference)
+    engine.run(dataloader)
+    return _concat_results(engine.state.full_outputs)
+

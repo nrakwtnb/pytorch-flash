@@ -148,6 +148,8 @@ discriminator_info = {
 
 dis = Discriminator(discriminator_info)
 
+
+import torch
 # how to treat latent_dim ?
 class GANGame_G(nn.Module):
     def __init__(self, generator, discriminator, latent_dim):
@@ -212,6 +214,7 @@ manager.add_optimizer('D', optimizerD)
 manager.add_optimizer('G', optimizerG)
 
 
+import torch
 def get_fake_labels(y):
     return torch.full((y.size(0), ), 0, device=y.device)
 def get_real_labels(y):
