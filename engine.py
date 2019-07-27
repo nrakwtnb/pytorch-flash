@@ -78,40 +78,49 @@ def create_trainer(update_info_list,  data_loader, input_transform=input_default
             
             model.train()# needed every time ? After calling evaluator run, back to train mode for example...
             
-            if num_batch_division == 1:
-                outputs_stage = model(inputs)
-                loss_stage = loss_fn({"inputs":inputs, "outputs":outputs_stage})
-                loss_stage.backward()
-                if not retain_comp_graph:
-                    loss_stage = loss_stage.detach()
-            else:
-                if engine.state.iteration % num_train_batches != 0:
-                    start_indices = start_indices_default
-                    batch_sizes = batch_sizes_default
-                else:
-                    start_indices = start_indices_final
-                    batch_sizes = batch_sizes_final
-
-                if DEBUG:
-                    print(batch_sizes)###
-                outputs_stage = []
-                loss_stage = []
-                for inputs_, bs in zip(_partition_batch(inputs, start_indices), batch_sizes):
-                    outputs_stage_ = model(inputs_)
-                    loss_stage_ = loss_fn({"inputs":inputs_, "outputs":outputs_stage_}) * bs / start_indices[-1]
-                    loss_stage_.backward()
+            num_iter = update info.get('num_iter', 1)
+            iter_ = 0
+            while iter_ < num_iter:
+                iter_ += 1
+                if num_batch_division == 1:
+                    outputs_stage = model(inputs)
+                    loss_stage = loss_fn({"inputs":inputs, "outputs":outputs_stage})
+                    loss_stage.backward()
                     if not retain_comp_graph:
-                        outputs_stage_ = _apply_transform(outputs_stage_, retain_comp_graph=False)
-                        loss_stage_ = loss_stage_.detach()
-                    outputs_stage.append(outputs_stage_)
-                    loss_stage.append(loss_stage_)
-                    if DEBUG:
-                        print(loss_stage_)###
-                outputs_stage = _concat_results(outputs_stage)
-                loss_stage = sum(loss_stage)
+                        loss_stage = loss_stage.detach()
+                else:
+                    if engine.state.iteration % num_train_batches != 0:
+                        start_indices = start_indices_default
+                        batch_sizes = batch_sizes_default
+                    else:
+                        start_indices = start_indices_final
+                        batch_sizes = batch_sizes_final
 
-            optimizer.step()
-            optimizer.zero_grad()
+                    if DEBUG:
+                        print(batch_sizes)###
+                    outputs_stage = []
+                    loss_stage = []
+                    for inputs_, bs in zip(_partition_batch(inputs, start_indices), batch_sizes):
+                        outputs_stage_ = model(inputs_)
+                        loss_stage_ = loss_fn({"inputs":inputs_, "outputs":outputs_stage_}) * bs / start_indices[-1]
+                        loss_stage_.backward()
+                        if not retain_comp_graph:
+                            outputs_stage_ = _apply_transform(outputs_stage_, retain_comp_graph=False)
+                            loss_stage_ = loss_stage_.detach()
+                        outputs_stage.append(outputs_stage_)
+                        loss_stage.append(loss_stage_)
+                        if DEBUG:
+                            print(loss_stage_)###
+                    outputs_stage = _concat_results(outputs_stage)
+                    loss_stage = sum(loss_stage)
+
+                optimizer.step()
+                optimizer.zero_grad()
+
+                if 'break_condition' in update_info:
+                    break_condition = update_info['break_condition']
+                    if break_condition(outputs_stage):
+                        break
 
             update_stage_name = update_info.get('name', str(N))
             if Add_update_name_in_outputs:
