@@ -82,6 +82,10 @@ def create_trainer(update_info_list,  data_loader, input_transform=input_default
             iter_ = 0
             while iter_ < num_iter:
                 iter_ += 1
+                if 'pre_operator' in update info:
+                    pre_operator = update_info['pre_operator']
+                    pre_operator(model=model, optimizer=optimizer, state=engine.state, iter_=iter_)
+
                 if num_batch_division == 1:
                     outputs_stage = model(inputs)
                     loss_stage = loss_fn({"inputs":inputs, "outputs":outputs_stage})
@@ -116,6 +120,10 @@ def create_trainer(update_info_list,  data_loader, input_transform=input_default
 
                 optimizer.step()
                 optimizer.zero_grad()
+
+                if 'post_operator' in update info:
+                    post_operator = update_info['post_operator']
+                    post_operator(model=model, optimizer=optimizer, state=engine.state, iter_=iter_, outputs=outputs_stage, loss=loss_stage)
 
                 if 'break_condition' in update_info:
                     break_condition = update_info['break_condition']
