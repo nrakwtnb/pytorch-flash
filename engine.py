@@ -73,16 +73,16 @@ def create_trainer(update_info_list,  data_loader, input_transform=input_default
                     continue
 
             model = update_info['model']
-            optimizer = update_info['optimizer']
+            optimizer = update_info.get('optimizer', None)
             loss_fn = update_info['loss_fn']
             
             model.train()# needed every time ? After calling evaluator run, back to train mode for example...
             
-            num_iter = update info.get('num_iter', 1)
+            num_iter = update_info.get('num_iter', 1)
             iter_ = 0
             while iter_ < num_iter:
                 iter_ += 1
-                if 'pre_operator' in update info:
+                if 'pre_operator' in update_info:
                     pre_operator = update_info['pre_operator']
                     pre_operator(model=model, optimizer=optimizer, state=engine.state, iter_=iter_)
 
@@ -118,10 +118,11 @@ def create_trainer(update_info_list,  data_loader, input_transform=input_default
                     outputs_stage = _concat_results(outputs_stage)
                     loss_stage = sum(loss_stage)
 
-                optimizer.step()
-                optimizer.zero_grad()
+                if optimizer is not None:
+                    optimizer.step()
+                    optimizer.zero_grad()
 
-                if 'post_operator' in update info:
+                if 'post_operator' in update_info:
                     post_operator = update_info['post_operator']
                     post_operator(model=model, optimizer=optimizer, state=engine.state, iter_=iter_, outputs=outputs_stage, loss=loss_stage)
 
@@ -180,7 +181,6 @@ def create_evaluator(evaluate_info_list, metrics={}, input_transform=input_defau
                     continue
 
             model = evaluate_info['model']
-            #loss_fn = evaluate_info['loss_fn']
 
             model.eval()
             with torch.no_grad():
