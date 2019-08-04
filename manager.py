@@ -58,6 +58,12 @@ class TrainManager():
         config = self.config
         config['objects']['models'].update({model_name : model})
 
+    def add_object(self, obj_key:str, obj_name:str, obj):
+        assert isinstance(obj_key ,str)
+        assert isinstance(obj_name ,str)
+        config = self.config
+        config['objects'][obj_key].update({obj_name : obj})
+
     def add_optimizer(self, optimizer_name:str, optimizer):
         assert isinstance(optimizer_name ,str)
         config = self.config
@@ -80,11 +86,34 @@ class TrainManager():
         config = self.config
         config['objects']['skip_condition'].update({skip_condition_name : skip_condition})
 
+    def add_break_condition(self, break_condition_name, break_condition):
+        assert isinstance(break_condition_name ,str)
+        config = self.config
+        config['objects']['break_condition'].update({break_condition_name : break_condition})
+
+    def add_pre_operator(self, pre_operator_name, pre_operator):
+        assert isinstance(pre_operator_name ,str)
+        config = self.config
+        config['objects']['pre_operator'].update({pre_operator_name : pre_operator})
+
+    def add_post_operator(self, post_operator_name, post_operator):
+        assert isinstance(post_operator_name ,str)
+        config = self.config
+        config['objects']['post_operator'].update({post_operator_name : post_operator})
+
+    def reset_update_info(self):
+        config = self.config
+        config['trainer']['update_info_list'] = []
+
+    def reset_evaluate_info(self):
+        config = self.config
+        config['trainer']['evaluate_info_list'] = []
+
     def add_update_info(self, **update_info):
         assert 'model' in update_info
         assert 'loss_fn' in update_info
-        assert 'optimizer' in update_info
-        assert all(map(lambda x:isinstance(x, str), update_info.values()))
+        #assert 'optimizer' in update_info
+        assert all(map(lambda x:isinstance(x, str) or isinstance(x, int) or isinstance(x, float), update_info.values()))
         config = self.config
         update_info_list = config['trainer']['update_info_list']
         update_info_list.append(update_info)
@@ -167,10 +196,8 @@ class TrainManager():
         if 'trainer' not in config.keys():
             config['trainer'] = {}
             
-        config['objects'].update({'models' : {}})
-        config['objects'].update({'loss_fns' : {}})
-        config['objects'].update({'optimizers' : {}})
-        config['objects'].update({'skip_condition' : {}})
+        for objects_key in ['models', 'loss_fns', 'optimizers', 'skip_condition', 'break_condition', 'pre_operator', 'post_operator']:
+            config['objects'].update({objects_key : {}})
         config['objects'].update({'metrics_log' : defaultdict(lambda :[])})
         config['trainer'].update({'update_info_list' : []})
         config['trainer'].update({'evaluate_info_list' : []})
@@ -205,7 +232,10 @@ class TrainManager():
             'model' : objects['models'],
             'loss_fn' : objects['loss_fns'],
             'optimizer' : objects['optimizers'],
-            'skip_condition' : objects['skip_condition']
+            'skip_condition' : objects['skip_condition'],
+            'break_condition' : objects['break_condition'],
+            'pre_operator' : objects['pre_operator'],
+            'post_operator' : objects['post_operator'],
         }
 
         update_info_list = []
@@ -213,19 +243,25 @@ class TrainManager():
             update_info_ = copy.copy(update_info)
             for key, obj in key2obj.items():
                 if key in update_info:
+                    assert update_info[key] in obj.keys(), f"'{key}' key '{update_info[key]}' is not registered"
                     update_info_[key] = obj[update_info[key]]
             update_info_list.append(update_info_)
         objects.update({'update_info_list' : update_info_list})
 
         key2obj = {
             'model' : objects['models'],
+            'skip_condition' : objects['skip_condition'],
+            'pre_operator' : objects['pre_operator'],
+            'post_operator' : objects['post_operator'],
         }
 
         evaluate_info_list = []
         for evaluate_info in trainer['evaluate_info_list']:
             evaluate_info_ = copy.copy(evaluate_info)
             for key, obj in key2obj.items():
-                evaluate_info_[key] = obj[evaluate_info[key]]
+                if key in evaluate_info:
+                    assert evaluate_info[key] in obj.keys(), f"'{key}' key '{evaluate_info[key]}' is not registered"
+                    evaluate_info_[key] = obj[evaluate_info[key]]
             evaluate_info_list.append(evaluate_info_)
         objects.update({'evaluate_info_list' : evaluate_info_list})
 

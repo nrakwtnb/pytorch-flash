@@ -73,45 +73,63 @@ def create_trainer(update_info_list,  data_loader, input_transform=input_default
                     continue
 
             model = update_info['model']
-            optimizer = update_info['optimizer']
+            optimizer = update_info.get('optimizer', None)
             loss_fn = update_info['loss_fn']
             
             model.train()# needed every time ? After calling evaluator run, back to train mode for example...
             
-            if num_batch_division == 1:
-                outputs_stage = model(inputs)
-                loss_stage = loss_fn({"inputs":inputs, "outputs":outputs_stage})
-                loss_stage.backward()
-                if not retain_comp_graph:
-                    loss_stage = loss_stage.detach()
-            else:
-                if engine.state.iteration % num_train_batches != 0:
-                    start_indices = start_indices_default
-                    batch_sizes = batch_sizes_default
-                else:
-                    start_indices = start_indices_final
-                    batch_sizes = batch_sizes_final
+            num_iter = update_info.get('num_iter', 1)
+            iter_ = 0
+            while iter_ < num_iter:
+                iter_ += 1
+                if 'pre_operator' in update_info:
+                    pre_operator = update_info['pre_operator']
+                    pre_operator(model=model, optimizer=optimizer, state=engine.state, iter_=iter_)
 
-                if DEBUG:
-                    print(batch_sizes)###
-                outputs_stage = []
-                loss_stage = []
-                for inputs_, bs in zip(_partition_batch(inputs, start_indices), batch_sizes):
-                    outputs_stage_ = model(inputs_)
-                    loss_stage_ = loss_fn({"inputs":inputs_, "outputs":outputs_stage_}) * bs / start_indices[-1]
-                    loss_stage_.backward()
+                if num_batch_division == 1:
+                    outputs_stage = model(inputs)
+                    loss_stage = loss_fn({"inputs":inputs, "outputs":outputs_stage})
+                    loss_stage.backward()
                     if not retain_comp_graph:
-                        outputs_stage_ = _apply_transform(outputs_stage_, retain_comp_graph=False)
-                        loss_stage_ = loss_stage_.detach()
-                    outputs_stage.append(outputs_stage_)
-                    loss_stage.append(loss_stage_)
-                    if DEBUG:
-                        print(loss_stage_)###
-                outputs_stage = _concat_results(outputs_stage)
-                loss_stage = sum(loss_stage)
+                        loss_stage = loss_stage.detach()
+                else:
+                    if engine.state.iteration % num_train_batches != 0:
+                        start_indices = start_indices_default
+                        batch_sizes = batch_sizes_default
+                    else:
+                        start_indices = start_indices_final
+                        batch_sizes = batch_sizes_final
 
-            optimizer.step()
-            optimizer.zero_grad()
+                    if DEBUG:
+                        print(batch_sizes)###
+                    outputs_stage = []
+                    loss_stage = []
+                    for inputs_, bs in zip(_partition_batch(inputs, start_indices), batch_sizes):
+                        outputs_stage_ = model(inputs_)
+                        loss_stage_ = loss_fn({"inputs":inputs_, "outputs":outputs_stage_}) * bs / start_indices[-1]
+                        loss_stage_.backward()
+                        if not retain_comp_graph:
+                            outputs_stage_ = _apply_transform(outputs_stage_, retain_comp_graph=False)
+                            loss_stage_ = loss_stage_.detach()
+                        outputs_stage.append(outputs_stage_)
+                        loss_stage.append(loss_stage_)
+                        if DEBUG:
+                            print(loss_stage_)###
+                    outputs_stage = _concat_results(outputs_stage)
+                    loss_stage = sum(loss_stage)### to be modified
+
+                if optimizer is not None:
+                    optimizer.step()
+                    optimizer.zero_grad()
+
+                if 'post_operator' in update_info:
+                    post_operator = update_info['post_operator']
+                    post_operator(model=model, optimizer=optimizer, state=engine.state, iter_=iter_, outputs=outputs_stage, loss=loss_stage)
+
+                if 'break_condition' in update_info:
+                    break_condition = update_info['break_condition']
+                    if break_condition(outputs_stage):
+                        break
 
             update_stage_name = update_info.get('name', str(N))
             if Add_update_name_in_outputs:
@@ -163,12 +181,19 @@ def create_evaluator(evaluate_info_list, metrics={}, input_transform=input_defau
                     continue
 
             model = evaluate_info['model']
-            #loss_fn = evaluate_info['loss_fn']
+
+            if 'pre_operator' in evaluate_info:
+                pre_operator = evaluate_info['pre_operator']
+                pre_operator(model=model, state=engine.state)
 
             model.eval()
             with torch.no_grad():
                 inputs = input_transform(batch)
                 outputs_stage = model(inputs)
+
+            if 'post_operator' in evaluate_info:
+                post_operator = evaluate_info['post_operator']
+                post_operator(model=model, state=engine.state, outputs=outputs_stage)
 
             eval_stage_name = evaluate_info.get('name', str(N))
             if Add_eval_name_in_outputs:
@@ -185,4 +210,23 @@ def create_evaluator(evaluate_info_list, metrics={}, input_transform=input_defau
     return engine
 
 
+
+"""
+    ToDo
+        * ? add metrics evaluations
+"""
+def evaluation(model, dataloader, input_transform=input_default_wrapper, **kwargs):
+    def _inference(engine, batch):
+        model.eval()
+        with torch.no_grad():
+            inputs = input_transform(batch)
+            outputs = model(inputs)
+        if hasattr(engine.state, 'full_outputs'):
+            engine.state.full_outputs.append(outputs)
+        else:
+            engine.state.__setattr__('full_outputs', [outputs])
+        return {}
+    engine = Engine(_inference)
+    engine.run(dataloader)
+    return _concat_results(engine.state.full_outputs)
 
