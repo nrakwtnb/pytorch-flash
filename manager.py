@@ -105,7 +105,7 @@ class TrainManager():
         config = self.config
         config['trainer']['update_info_list'] = []
 
-    def reset_update_info(self):
+    def reset_evaluate_info(self):
         config = self.config
         config['trainer']['evaluate_info_list'] = []
 
@@ -250,13 +250,18 @@ class TrainManager():
 
         key2obj = {
             'model' : objects['models'],
+            'skip_condition' : objects['skip_condition'],
+            'pre_operator' : objects['pre_operator'],
+            'post_operator' : objects['post_operator'],
         }
 
         evaluate_info_list = []
         for evaluate_info in trainer['evaluate_info_list']:
             evaluate_info_ = copy.copy(evaluate_info)
             for key, obj in key2obj.items():
-                evaluate_info_[key] = obj[evaluate_info[key]]
+                if key in evaluate_info:
+                    assert evaluate_info[key] in obj.keys(), f"'{key}' key '{evaluate_info[key]}' is not registered"
+                    evaluate_info_[key] = obj[evaluate_info[key]]
             evaluate_info_list.append(evaluate_info_)
         objects.update({'evaluate_info_list' : evaluate_info_list})
 

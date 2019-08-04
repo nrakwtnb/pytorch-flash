@@ -116,7 +116,7 @@ def create_trainer(update_info_list,  data_loader, input_transform=input_default
                         if DEBUG:
                             print(loss_stage_)###
                     outputs_stage = _concat_results(outputs_stage)
-                    loss_stage = sum(loss_stage)
+                    loss_stage = sum(loss_stage)### to be modified
 
                 if optimizer is not None:
                     optimizer.step()
@@ -182,10 +182,18 @@ def create_evaluator(evaluate_info_list, metrics={}, input_transform=input_defau
 
             model = evaluate_info['model']
 
+            if 'pre_operator' in evaluate_info:
+                pre_operator = evaluate_info['pre_operator']
+                pre_operator(model=model, state=engine.state)
+
             model.eval()
             with torch.no_grad():
                 inputs = input_transform(batch)
                 outputs_stage = model(inputs)
+
+            if 'post_operator' in evaluate_info:
+                post_operator = evaluate_info['post_operator']
+                post_operator(model=model, state=engine.state, outputs=outputs_stage)
 
             eval_stage_name = evaluate_info.get('name', str(N))
             if Add_eval_name_in_outputs:
