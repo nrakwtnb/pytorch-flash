@@ -9,6 +9,15 @@ def get_optimzier(optimizer_info, model):
     elif opt_name in ['Adam']:
         from torch.optim import Adam
         return Adam(model.parameters(), **opt_args)
+    elif opt_name in ['RMSprop']:
+        from torch.optim import RMSprop
+        return RMSprop(model.parameters(), **opt_args)
+    elif opt_name in ['Adadelta']:
+        from torch.optim import Adadelta
+        return Adadelta(model.parameters(), **opt_args)
+    elif opt_name in ['Adagrad']:
+        from torch.optim import Adagrad
+        return Adagrad(model.parameters(), **opt_args)
     else:
         assert False, "Invalid optimizer name"
 
