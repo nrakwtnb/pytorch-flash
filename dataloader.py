@@ -1,5 +1,5 @@
 
-def get_sampled_loader(data_loader, num_samples, attributions=['data' 'target'], seed=0):
+def get_sampled_loader(data_loader, num_samples, attributions=['data', 'targets'], seed=0):
     dataset = data_loader.dataset
     num_data = len(dataset)
     assert all([hasattr(dataset, a) for a in attributions])

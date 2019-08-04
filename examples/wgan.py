@@ -1,16 +1,18 @@
 
-"""
-    * to be modified according to wgan.py
-"""
-
 import sys
 sys.path.append('../')
 
 import os
 
-save_dir = './test'
+NUM_MNIST_TRAIN_SAMPLES = 60000
+NUM_MNIST_VALIDATION_SAMPLES = 10000
+
+save_dir = './test_wgan'
 output_save_dir = os.path.join(save_dir, 'outputs')
 model_save_dir = os.path.join(save_dir, 'models')
+num_train_samples = 320
+num_train_eval_samples = 200
+num_validation_samples = 200
 
 config = {
     "device" : {
@@ -60,11 +62,11 @@ from debug import get_data_loaders
 mnist_path = args.mnist_path
 train_loader, val_loader = get_data_loaders(train_batch_size=manager.config["train"]["train_batch_size"],
                                             val_batch_size=manager.config["others"]["eval_batch_size"], mnist_path=mnist_path,
-                                            train_dataset_size=np.random.randint(0,60000,20000),
-                                            val_dataset_size=np.random.randint(0,10000,2000), download=True)
+                                            train_dataset_size=np.random.randint(0,NUM_MNIST_TRAIN_SAMPLES,num_train_samples),
+                                            val_dataset_size=np.random.randint(0,NUM_MNIST_VALIDATION_SAMPLES,num_validation_samples), download=True)
 
 from dataloader import get_sampled_loader
-eval_train_loader = get_sampled_loader(train_loader, num_samples=2000)
+eval_train_loader = get_sampled_loader(train_loader, num_samples=num_train_eval_samples)
 
 
 manager.set_dataloader(train_loader=train_loader, val_loader=val_loader, eval_train_loader=eval_train_loader)
@@ -155,59 +157,55 @@ dis = Discriminator(discriminator_info)
 
 import torch
 # how to treat latent_dim ?
-class GANGame_G(nn.Module):
+class GANGame(nn.Module):
     def __init__(self, generator, discriminator, latent_dim):
-        super(GANGame_G, self).__init__()
+        super(GANGame, self).__init__()
         self.generator = generator
         self.discriminator = discriminator
         self.latent_dim = latent_dim
+        self.turn_D = True
+    
+    def set_turn_D(self, turn_D):
+        self.turn_D = turn_D
     
     def forward(self, inputs):
         x_real = inputs['x']
         batch_size = x_real.shape[0]
         if 'seed' in inputs:
             torch.manual_seed(inputs['seed'])
-        z = torch.randn(batch_size,self.latent_dim,1,1)
-        gen_out = self.generator(z)
-        dis_out = self.discriminator(gen_out)
-        return {'gen' : gen_out, 'dis_fake' : dis_out, 'z':z}
-
-# how to treat latent_dim ?
-class GANGame_D(nn.Module):
-    def __init__(self, generator, discriminator, latent_dim):
-        super(GANGame_D, self).__init__()
-        self.generator = generator
-        self.discriminator = discriminator
-        self.latent_dim = latent_dim
-    
-    def forward(self, inputs):
-        x_real = inputs['x']
-        if 'seed' in inputs:
-            torch.manual_seed(inputs['seed'])
-        batch_size = x_real.shape[0]
-        z = torch.randn(batch_size,self.latent_dim,1,1)
-        gen_out = self.generator(z, retain_comp_graph=False)
+        z = torch.randn(batch_size,self.latent_dim,1,1)# Ex. latent_dim = 12, (12,1,1) ?
+        
+        retain_G_comp_graph = not self.turn_D
+        gen_out = self.generator(z, retain_comp_graph=retain_G_comp_graph)
+        
         dis_fake_out = self.discriminator(gen_out)
-        dis_real_out = self.discriminator(x_real)
-        return {'gen' : gen_out, 'dis_real' : dis_real_out, 'dis_fake' : dis_fake_out, 'z':z}
+        if self.turn_D:
+            dis_real_out = self.discriminator(x_real)
+            return {'gen' : gen_out, 'dis_real' : dis_real_out, 'dis_fake' : dis_fake_out, 'z':z}
+        else:
+            return {'gen' : gen_out, 'dis_fake' : dis_fake_out, 'z':z}
 
-ganD = GANGame_D(gen, dis, latent_dim)
-ganG = GANGame_G(gen, dis, latent_dim)
+gan = GANGame(gen, dis, latent_dim)
 
-manager.add_model('G', gen)
-manager.add_model('D', dis)
-manager.add_model('ganD', ganD)
-manager.add_model('ganG', ganG)
+manager.add_model('G', gen)# for model checkpoint
+manager.add_model('D', dis)# for model checkpoint
+manager.add_model('GAN', gan)
+
+
+from torch.nn.init import normal_
+torch.manual_seed(1)
+for k,p in gan.named_parameters():
+    normal_(p, 0.0, 0.01)
 
 
 
 from optimizers import get_optimzier
 
 optimizer_info = {
-    "name" : "Adam",
+    "name" : "RMSprop",
     "args" : {
-        "lr" : 0.0002,
-        "betas" : (0.5, 0.999)
+        "lr" : 0.0001,
+        #"betas" : (0.5, 0.999)
     },
 }
 
@@ -218,48 +216,83 @@ manager.add_optimizer('D', optimizerD)
 manager.add_optimizer('G', optimizerG)
 
 
-import torch
-def get_fake_labels(y):
-    return torch.full((y.size(0), ), 0, device=y.device)
-def get_real_labels(y):
-    return torch.full((y.size(0), ), 1, device=y.device)
+def create_GAN_loss_func(loss_func, auxiliary_loss_func=None, fake_label=0, real_label=1, fake_key='dis_fake', real_key='dis_real'):
+    def get_fake_labels(y):
+        return torch.full((y.size(0), ), fake_label, device=y.device)
+    def get_real_labels(y):
+        return torch.full((y.size(0), ), real_label, device=y.device)
 
-bce = nn.BCELoss()
-def loss_bce(case):
-    if case == 'fake':
-        get_labels = get_fake_labels
-    elif case == 'real':
-        get_labels = get_real_labels
+    def generate_GAN_loss(loss_func, case):
+        if case == 'fake':
+            get_labels = get_fake_labels
+        elif case == 'real':
+            get_labels = get_real_labels
+        else:
+            assert False, "Invalid"
+        def loss_func_for_fixed_labels(y):
+            y = y.view(-1)
+            return loss_func(y, get_labels(y))
+        return loss_func_for_fixed_labels
+    
+    loss_fake = generate_GAN_loss(loss_func, 'fake')
+    loss_real = generate_GAN_loss(loss_func, 'real')
+    
+    if auxiliary_loss_func is not None:
+        if isinstance(auxiliary_loss_func, dict):
+            auxiliary_loss_func_G = auxiliary_loss_func.get('G', None)
+            auxiliary_loss_func_D = auxiliary_loss_func.get('D', None)
+        else:
+            auxiliary_loss_func_G = auxiliary_loss_func
+            auxiliary_loss_func_D = auxiliary_loss_func
     else:
-        assert False, "Invalid"
-    def loss_bce_(y):
-        y = y.view(-1)
-        return bce(y, get_labels(y))
-    return loss_bce_
+        auxiliary_loss_func_G = None
+        auxiliary_loss_func_D = None
+        
+    if auxiliary_loss_func_G is None: 
+        def G_update_loss(results):
+            return loss_real(results['outputs'][fake_key])
+    else:
+        def G_update_loss(results):
+            return loss_real(results['outputs'][fake_key]) + auxiliary_loss_func_G(results)
+    if auxiliary_loss_func_D is None: 
+        def D_update_loss(results):
+            return loss_real(results['outputs'][real_key]) + loss_fake(results['outputs'][fake_key])
+    else:
+        def D_update_loss(results):
+            return loss_real(results['outputs'][real_key]) + loss_fake(results['outputs'][fake_key]) + auxiliary_loss_func_D(results)
+    return { 'G' : G_update_loss, 'D' : D_update_loss}
 
-loss_fake = loss_bce('fake')
-loss_real = loss_bce('real')
+def WGAN_loss(y, label):
+    return ((1 - 2 * label) * y).mean()
 
-def G_update_loss(results):
-    return loss_real(results['outputs']['dis_fake'])
+GAN_loss = create_GAN_loss_func(loss_func=WGAN_loss)
+manager.add_loss_fn('D', GAN_loss['D'])
+manager.add_loss_fn('G', GAN_loss['G'])
 
-def D_update_loss(results):
-    return loss_real(results['outputs']['dis_real']) + loss_fake(results['outputs']['dis_fake'])
 
-manager.add_loss_fn('D', D_update_loss)
-manager.add_loss_fn('G', G_update_loss)
+def D_pre_operator(model, iter_=1, **kwargs):
+    if iter_ == 1:
+        model.set_turn_D(True)
+def G_pre_operator(model, **kwargs):
+    model.set_turn_D(False)
+manager.add_pre_operator('G', G_pre_operator)
+manager.add_pre_operator('D', D_pre_operator)
 
-def skip_G(state):
-    return state.iteration % 2 == 1
 
-manager.add_skip_condition('G', skip_G)
+from func import weight_clipping
+manager.add_post_operator('clip', weight_clipping(0.05))
 
-update1 = {'name' : 'D', 'model' : 'ganD', 'loss_fn' : 'D', 'optimizer' : 'D'}
+
+
+manager.reset_update_info()
+manager.reset_evaluate_info()
+
+update1 = {'name' : 'D', 'model' : 'GAN', 'loss_fn' : 'D', 'optimizer' : 'D', 'num_iter' : 4, 'pre_operator' : 'D', 'post_operator' : 'clip'}
 manager.add_update_info(**update1)
-update2 = {'name' : 'G', 'model' : 'ganG', 'loss_fn' : 'G', 'optimizer' : 'G', 'skip_condition':'G'}
+update2 = {'name' : 'G', 'model' : 'GAN', 'loss_fn' : 'G', 'optimizer' : 'G', 'pre_operator' : 'G'}#, 'skip_condition':'G'}
 manager.add_update_info(**update2)
 
-evaluate1 = {'model' : 'ganD'}
+evaluate1 = {'model' : 'GAN', 'pre_operator' : 'D'}
 manager.add_evaluate_info(**evaluate1)
 
 manager.set_objects()
