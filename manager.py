@@ -7,6 +7,7 @@ from ignite.metrics import Accuracy
 
 from utils import wrap_metrics, get_y_values
 from metrics import Loss
+from files import prepare_target_dir
 
 
 """
@@ -208,20 +209,18 @@ class TrainManager():
         """
             ToDo
                 * refactoring
+                * allow manager to set assert_on switching
         """
         config = self.config
         save_dir = config.get('handlers', {}).get('checkpoint', {}).get('save_dir', None)
         if save_dir is not None:
-            if os.path.exists(save_dir):
-                assert False, 'already exists !'
-            else:
-                os.makedirs(save_dir)
+            prepare_target_dir(save_dir)
         save_dir = config.get('handlers', {}).get('output', {}).get('save_dir', None)
         if save_dir is not None:
-            os.makedirs(save_dir, exist_ok=True)
+            prepare_target_dir(save_dir)
         save_dir = config.get('others', {}).get('save_dir', None)
         if save_dir is not None:
-            os.makedirs(save_dir, exist_ok=True)
+            prepare_target_dir(save_dir)
 
     def set_objects(self):
         import copy
@@ -274,7 +273,6 @@ class TrainManager():
         grad_accumulation_steps = config['others'].get('grad_accumulation_steps', 1)
         metrics = objects['metrics']
         train_loader = objects['data']['train_loader']
-        #metrics_log = objects['metrics_log']
         update_info_list = objects['update_info_list']
         evaluate_info_list = objects['evaluate_info_list']
         
