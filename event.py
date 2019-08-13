@@ -94,7 +94,7 @@ def create_default_events(config):
             print_message = "Epoch[{}] Iteration[{}/{}] Loss: {:.2f}".format(epoch, iter_, num_train_batches, loss_val)
         else:
             if isinstance(results_loss, list):
-                loss_val = { str(n):l.item() for n,l in enumerate(results_loss, 1) }
+                loss_val = { f"({n})":l.item() for n,l in enumerate(results_loss, 1) }
             elif isinstance(results_loss, dict):
                 loss_val = { k:l.item() for k,l in results_loss.items() }
             else:
