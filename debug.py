@@ -70,3 +70,7 @@ def get_data_loaders(train_batch_size, val_batch_size, mnist_path, train_dataset
     train_loader = DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=val_batch_size, shuffle=False)
     return train_loader, val_loader
+
+
+def get_state(manager, engine_name='trainer'):
+    return manager.config['objects']['engine'][engine_name].state

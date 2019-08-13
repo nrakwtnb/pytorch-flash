@@ -1,5 +1,5 @@
 
-# pytorch-flush
+# pytorch-flash
 
 ## Goal
 
@@ -9,9 +9,11 @@ This is an experimental project to realize:
 * simple codes to understand and maintain with ease
 	* unified DL interfaces as possible
 
+* less effort and complex, more productive and flexible
+
 ## Description
 
-* neural network learning implementations wrapper based on pytorch and pytorch-ignite
+* deep learning implementations wrapper based on pytorch and pytorch-ignite
 * unofficial private project ( unrelated to the pytorch developer teams )
 
 Caution:
@@ -24,13 +26,13 @@ To appear ...
 
 ## Schedule
 
-* v0.0 alpha : August, 2019
+* v0.0 alpha : November, 2019
 	+ add several functions
 	+ unify iterfaces as possible
 	+ several tests and debugs
 	+ make examples
 
-## Future Work
+## Future Works
 
 * automatic flow generation
 
