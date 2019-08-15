@@ -1,5 +1,3 @@
-get_ipython().run_line_magic('load_ext', 'autoreload')
-get_ipython().run_line_magic('autoreload', '2')
 
 import sys
 sys.path.append('../../pytorch-flash/')
