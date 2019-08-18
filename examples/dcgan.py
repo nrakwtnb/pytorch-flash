@@ -1,16 +1,21 @@
 
-"""
-    * to be modified according to wgan.py
-"""
-
 import sys
 sys.path.append('../')
 
 import os
 
-save_dir = './test'
+NUM_MNIST_TRAIN_SAMPLES = 60000
+NUM_MNIST_VALIDATION_SAMPLES = 10000
+
+save_dir = './test_dcgan'
 output_save_dir = os.path.join(save_dir, 'outputs')
 model_save_dir = os.path.join(save_dir, 'models')
+num_train_samples = 320
+num_train_eval_samples = 200
+num_validation_samples = 200
+
+n_critic = 4
+weight_clip_param = 0.05
 
 config = {
     "device" : {
@@ -60,144 +65,38 @@ from debug import get_data_loaders
 mnist_path = args.mnist_path
 train_loader, val_loader = get_data_loaders(train_batch_size=manager.config["train"]["train_batch_size"],
                                             val_batch_size=manager.config["others"]["eval_batch_size"], mnist_path=mnist_path,
-                                            train_dataset_size=np.random.randint(0,60000,20000),
-                                            val_dataset_size=np.random.randint(0,10000,2000), download=True)
+                                            train_dataset_size=np.random.randint(0,NUM_MNIST_TRAIN_SAMPLES,num_train_samples),
+                                            val_dataset_size=np.random.randint(0,NUM_MNIST_VALIDATION_SAMPLES,num_validation_samples), download=True)
 
 from dataloader import get_sampled_loader
-eval_train_loader = get_sampled_loader(train_loader, num_samples=2000)
+eval_train_loader = get_sampled_loader(train_loader, num_samples=num_train_eval_samples)
 
 
 manager.set_dataloader(train_loader=train_loader, val_loader=val_loader, eval_train_loader=eval_train_loader)
 
 
+
 from architectures import Generator, Discriminator
-import torch.nn as nn
+from examples import gan_config
 
-latent_dim = 24
-gch = 32
-num_ch = 1
-
-deconv_init = {
-    'kernel_size' : 4,
-    'stride' : 1,
-    'padding' : 0
-}
-deconv_double = {
-    'kernel_size' : 4,
-    'stride' : 2,
-    'padding' : 1
-}
-
-block_info = []
-for i in range(2):
-    block_info.append({
-        'deconv_info' : {'channels' : gch*2**(2-i), **deconv_init },
-        'bn' : True,
-        'activation' : nn.ReLU()
-    })
-block_info.append({
-    'deconv_info' : {'channels' : gch, **deconv_double },
-    'bn' : True,
-    'activation' : nn.ReLU()
-})
-block_info.append({
-    'deconv_info' : {'channels' : num_ch, **deconv_double },
-    'bn' : False,
-    'activation' : nn.Tanh()
-})
-
-generator_info = {
-    'latent_dim' : latent_dim,
-    'block_info': block_info
-}
-
-gen = Generator(generator_info)
-
-dch = 32
-
-conv_half = {
-    'kernel_size' : 4,
-    'stride' : 2,
-    'padding' : 1
-}
-conv_final = {
-    'kernel_size' : 4,
-    'stride' : 1,
-    'padding' : 0
-}
+gen = Generator(gan_config.generator_info)
+dis = Discriminator(gan_config.discriminator_info)
 
 
-block_info = []
-for i in range(2):
-    block_info.append({
-        'conv_info' : {'channels' : dch*2**i, **conv_half },
-        'bn' : True,
-        'activation' : nn.LeakyReLU(0.2)
-    })
-block_info.append({
-    'conv_info' : {'channels' : dch*2**2, **conv_final },
-    'bn' : True,
-    'activation' : nn.Sigmoid()
-})
-block_info.append({
-    'conv_info' : {'channels' : 1, **conv_final },
-    'bn' : False,
-    'activation' : nn.Sigmoid()
-})
+from gan.utils import GANGame
 
-discriminator_info = {
-    'num_input_ch' : num_ch,
-    'block_info': block_info
-}
+gan = GANGame(gen, dis, gan_config.latent_dim)
 
-dis = Discriminator(discriminator_info)
+manager.add_model('G', gen)# for model checkpoint
+manager.add_model('D', dis)# for model checkpoint
+manager.add_model('GAN', gan)
 
 
 import torch
-# how to treat latent_dim ?
-class GANGame_G(nn.Module):
-    def __init__(self, generator, discriminator, latent_dim):
-        super(GANGame_G, self).__init__()
-        self.generator = generator
-        self.discriminator = discriminator
-        self.latent_dim = latent_dim
-    
-    def forward(self, inputs):
-        x_real = inputs['x']
-        batch_size = x_real.shape[0]
-        if 'seed' in inputs:
-            torch.manual_seed(inputs['seed'])
-        z = torch.randn(batch_size,self.latent_dim,1,1)
-        gen_out = self.generator(z)
-        dis_out = self.discriminator(gen_out)
-        return {'gen' : gen_out, 'dis_fake' : dis_out, 'z':z}
-
-# how to treat latent_dim ?
-class GANGame_D(nn.Module):
-    def __init__(self, generator, discriminator, latent_dim):
-        super(GANGame_D, self).__init__()
-        self.generator = generator
-        self.discriminator = discriminator
-        self.latent_dim = latent_dim
-    
-    def forward(self, inputs):
-        x_real = inputs['x']
-        if 'seed' in inputs:
-            torch.manual_seed(inputs['seed'])
-        batch_size = x_real.shape[0]
-        z = torch.randn(batch_size,self.latent_dim,1,1)
-        gen_out = self.generator(z, retain_comp_graph=False)
-        dis_fake_out = self.discriminator(gen_out)
-        dis_real_out = self.discriminator(x_real)
-        return {'gen' : gen_out, 'dis_real' : dis_real_out, 'dis_fake' : dis_fake_out, 'z':z}
-
-ganD = GANGame_D(gen, dis, latent_dim)
-ganG = GANGame_G(gen, dis, latent_dim)
-
-manager.add_model('G', gen)
-manager.add_model('D', dis)
-manager.add_model('ganD', ganD)
-manager.add_model('ganG', ganG)
+from torch.nn.init import normal_
+torch.manual_seed(1)
+for k,p in gan.named_parameters():
+    normal_(p, 0.0, 0.01)
 
 
 
@@ -224,6 +123,7 @@ def get_fake_labels(y):
 def get_real_labels(y):
     return torch.full((y.size(0), ), 1, device=y.device)
 
+import torch.nn as nn
 bce = nn.BCELoss()
 def loss_bce(case):
     if case == 'fake':
@@ -250,16 +150,25 @@ manager.add_loss_fn('D', D_update_loss)
 manager.add_loss_fn('G', G_update_loss)
 
 def skip_G(state):
-    return state.iteration % 2 == 1
+    return state.iteration % n_critic == 1
 
 manager.add_skip_condition('G', skip_G)
 
-update1 = {'name' : 'D', 'model' : 'ganD', 'loss_fn' : 'D', 'optimizer' : 'D'}
+def D_pre_operator(model, iter_=1, **kwargs):
+    if iter_ == 1:
+        model.set_turn_D(True)
+def G_pre_operator(model, **kwargs):
+    model.set_turn_D(False)
+manager.add_pre_operator('G', G_pre_operator)
+manager.add_pre_operator('D', D_pre_operator)
+
+
+update1 = {'name' : 'D', 'model' : 'GAN', 'loss_fn' : 'D', 'optimizer' : 'D', 'pre_operator' : 'D'}
 manager.add_update_info(**update1)
-update2 = {'name' : 'G', 'model' : 'ganG', 'loss_fn' : 'G', 'optimizer' : 'G', 'skip_condition':'G'}
+update2 = {'name' : 'G', 'model' : 'GAN', 'loss_fn' : 'G', 'optimizer' : 'G', 'pre_operator' : 'G', 'skip_condition':'G'}
 manager.add_update_info(**update2)
 
-evaluate1 = {'model' : 'ganD'}
+evaluate1 = {'model' : 'GAN', 'pre_operator' : 'D'}
 manager.add_evaluate_info(**evaluate1)
 
 manager.set_objects()

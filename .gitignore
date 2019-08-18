@@ -1,5 +1,6 @@
 *.swp
 work/
 *_debug
+*.ignore
 tags
 __pycache__
