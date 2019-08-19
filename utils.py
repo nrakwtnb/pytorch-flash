@@ -21,6 +21,8 @@ def _apply_transform(tensors, **kwargs):
         return { k:_apply_transform(v, **kwargs) for k,v in tensors.items() }
     elif isinstance(tensors, list):
         return [ _apply_transform(t, **kwargs) for t in tensors ]
+    else:
+        return tensors
 
 
 
@@ -124,6 +126,9 @@ def wrap_metrics(func, get_y_values):
     return _wrap_metrics
 
 
+"""
+    * if no batch size is obtained, check next index in dict or list
+"""
 def _get_batchsize(tensors):
     if isinstance(tensors, torch.Tensor):
         return len(tensors)
@@ -131,6 +136,13 @@ def _get_batchsize(tensors):
         return _get_batchsize(list(tensors.values())[0])
     elif isinstance(tensors, list):
         return _get_batchsize(tensors[0])
+    else:
+        if hasattr(tensors, 'batch_size'):
+            return tensors.batch_size
+        elif hasattr(tensors, '__len__'):
+            return len(tensors)
+        else:
+            assert False, 'no batch size computed'
 
 
 

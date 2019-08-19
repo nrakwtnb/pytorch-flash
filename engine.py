@@ -16,25 +16,6 @@ DEBUG = False
         + In this case, assert dataloader is not None
     * ? package args as config
 """
-"""
-Factory function for creating a trainer for supervised models.
-
-Args:
-    device (str, optional): device type specification (default: None).
-        Applies to both model and batches.
-    non_blocking (bool, optional): if True and this copy is between CPU and GPU, the copy may occur asynchronously
-        with respect to the host. For other cases, this argument has no effect.
-    prepare_batch (callable, optional): function that receives `batch`, `device`, `non_blocking` and outputs
-        tuple of tensors `(batch_x, batch_y)`.
-    output_transform (callable, optional): function that receives 'x', 'y', 'y_pred', 'loss' and returns value
-        engine.to be assigned to engine's state.output after each iteration. Default is returning `loss.item()`.
-
-Note: `engine.state.output` for this engine is defind by `output_transform` parameter and is the loss
-    of the processed batch by default.
-
-Returns:
-    Engine: a trainer engine with supervised update function.
-"""
 def create_trainer(update_info_list,  data_loader, input_transform=input_default_wrapper, retain_comp_graph=False, Add_update_name_in_outputs=False, Add_update_name_in_loss=False, **kwargs):
 
     grad_accumulation_steps = kwargs.get('grad_accumulation_steps', 1)
@@ -67,23 +48,25 @@ def create_trainer(update_info_list,  data_loader, input_transform=input_default
         else:
             loss = []
         for N, update_info in enumerate(update_info_list, 1):
-            if 'skip_condition' in update_info:
-                skip_condition = update_info['skip_condition']
+            skip_condition = update_info.get('skip_condition', None)
+            if skip_condition is not None:
                 if skip_condition(engine.state):
                     continue
 
             model = update_info['model']
             optimizer = update_info.get('optimizer', None)
             loss_fn = update_info['loss_fn']
+            pre_operator = update_info.get('pre_operator', None)
+            post_operator = update_info.get('post_operator', None)
+            break_condition = update_info.get('break_condition', None)
             
             model.train()# needed every time ? After calling evaluator run, back to train mode for example...
             
             num_iter = update_info.get('num_iter', 1)
             iter_ = 0
-            while iter_ < num_iter:
+            while iter_ < num_iter:### change into for-loop ?
                 iter_ += 1
-                if 'pre_operator' in update_info:
-                    pre_operator = update_info['pre_operator']
+                if pre_operator is not None:
                     pre_operator(model=model, optimizer=optimizer, state=engine.state, iter_=iter_)
 
                 if num_batch_division == 1:
@@ -122,12 +105,10 @@ def create_trainer(update_info_list,  data_loader, input_transform=input_default
                     optimizer.step()
                     optimizer.zero_grad()
 
-                if 'post_operator' in update_info:
-                    post_operator = update_info['post_operator']
+                if post_operator is not None:
                     post_operator(model=model, optimizer=optimizer, state=engine.state, iter_=iter_, outputs=outputs_stage, loss=loss_stage)
 
-                if 'break_condition' in update_info:
-                    break_condition = update_info['break_condition']
+                if break_condition is not None:
                     if break_condition(outputs_stage):
                         break
 
@@ -147,43 +128,21 @@ def create_trainer(update_info_list,  data_loader, input_transform=input_default
 
 
 
-
-"""
-Factory function for creating an evaluator for supervised models.
-
-Args:
-    model (`torch.nn.Module`): the model to train.
-    metrics (dict of str - :class:`~ignite.metrics.Metric`): a map of metric names to Metrics.
-    device (str, optional): device type specification (default: None).
-        Applies to both model and batches.
-    non_blocking (bool, optional): if True and this copy is between CPU and GPU, the copy may occur asynchronously
-        with respect to the host. For other cases, this argument has no effect.
-    prepare_batch (callable, optional): function that receives `batch`, `device`, `non_blocking` and outputs
-        tuple of tensors `(batch_x, batch_y)`.
-    output_transform (callable, optional): function that receives 'x', 'y', 'y_pred' and returns value
-        to be assigned to engine's state.output after each iteration. Default is returning `(y_pred, y,)` which fits
-        output expected by metrics. If you change it you should use `output_transform` in metrics.
-
-Note: `engine.state.output` for this engine is defind by `output_transform` parameter and is
-    a tuple of `(batch_pred, batch_y)` by default.
-
-Returns:
-    Engine: an evaluator engine with supervised inference function.
-"""
 def create_evaluator(evaluate_info_list, metrics={}, input_transform=input_default_wrapper, Add_eval_name_in_outputs=False, **kwargs):
 
     def _inference(engine, batch):
         outputs = {}
         for N, evaluate_info in enumerate(evaluate_info_list, 1):
-            if 'skip_condition' in evaluate_info:
-                skip_condition = evaluate_info['skip_condition']
+            skip_condition = evaluate_info.get('skip_condition', None)
+            if skip_condition is not None:
                 if skip_condition(engine.state):
                     continue
 
             model = evaluate_info['model']
+            pre_operator = evaluate_info.get('pre_operator', None)
+            post_operator = evaluate_info.get('post_operator', None)
 
-            if 'pre_operator' in evaluate_info:
-                pre_operator = evaluate_info['pre_operator']
+            if pre_operator is not None:
                 pre_operator(model=model, state=engine.state)
 
             model.eval()
@@ -191,8 +150,7 @@ def create_evaluator(evaluate_info_list, metrics={}, input_transform=input_defau
                 inputs = input_transform(batch)
                 outputs_stage = model(inputs)
 
-            if 'post_operator' in evaluate_info:
-                post_operator = evaluate_info['post_operator']
+            if post_operator is not None:
                 post_operator(model=model, state=engine.state, outputs=outputs_stage)
 
             eval_stage_name = evaluate_info.get('name', str(N))

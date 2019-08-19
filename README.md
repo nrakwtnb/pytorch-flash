@@ -24,6 +24,24 @@ This is experimental and there occur unexpected behaviour. Please notice me them
 
 To appear ...
 
+## ToDo
+
+* interface (API)
+	* []: simpler training description around update additions
+	* []: events definition
+	* []: simplify transformer attachments through dataloader -> model -> loss
+
+* train manager
+	* []: refactoring metrics setup (separate metrics manager from train manager)
+	* []: seed management/controller (ensure reproductions)
+	* []: gpu management (including multi GPUs)
+	* []: save, load and resume
+	* []: update visualization
+	* []: test-run (or dry-run)
+
+* engine
+	* []: provide some buffer in ignite.State class (e.g. replay buffer)
+
 ## Schedule
 
 * v0.0 alpha : November, 2019
