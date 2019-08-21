@@ -57,7 +57,15 @@ class TrainManager():
     def add_model(self, model_name:str, model, device=None):
         assert isinstance(model_name ,str)
         config = self.config
-        config['objects']['models'].update({model_name : model})
+        # temporal
+        if device is None:
+            device_cfg = self.config['device']
+            num_gpu = device_cfg.get('num_gpu', 1)
+            if num_gpu > 0:
+                device = device_cfg.get('gpu', 0)
+            else:
+                device = -1
+        config['objects']['models'].update({model_name : model.cuda(device) if torch.cuda.is_available() or device >= 0 else model})
 
     def add_object(self, obj_key:str, obj_name:str, obj):
         assert isinstance(obj_key ,str)
