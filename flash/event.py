@@ -23,16 +23,18 @@ def create_default_events(config):
             from tensorboardX import SummaryWriter
         except ImportError:
             raise RuntimeError("No tensorboardX package is found. Please install with the command: \npip install tensorboardX")
+        log_dir = "tf_log"
     elif vis_tool in visdom_flags:
         try:
             import visdom
         except ImportError:
             raise RuntimeError("No visdom package is found. Please install it with command: \n pip install visdom")
     else:
-        from tqdm import tqdm
+        if vis_tool == 'notebook':
+            from tqdm import tqdm_notebook as tqdm
+        else:
+            from tqdm import tqdm
 
-
-    log_dir = "tf_log"
 
     objects = config['objects']
     grad_accumulation_steps = config['others']['grad_accumulation_steps']
@@ -42,7 +44,6 @@ def create_default_events(config):
     train_evaluator = objects['engine']['train_evaluator']
     val_evaluator = objects['engine']['val_evaluator']
     trainer = objects['engine']['trainer']
-
 
     num_train_batches = len(train_loader)
     log_interval = config['others']['log_interval']
@@ -69,10 +70,9 @@ def create_default_events(config):
         val_avg_loss_window = create_plot_window(vis, '#Epochs', 'Loss', 'Validation Average Loss')
         objects['vis_tool'] = vis
     else:
-        desc = "ITERATION - loss: "#{:.2f}"
+        desc = "ITERATION - loss: "
         pbar = tqdm(
-            initial=0, leave=False, total=len(train_loader)#,
-            #desc=desc.format(0)
+            initial=0, leave=False, total=len(train_loader),
         )
         objects['vis_tool'] = pbar
 
@@ -87,21 +87,21 @@ def create_default_events(config):
         iter_ = ((iter_ - 1) % num_train_batches) // grad_accumulation_steps + 1
         num_iter_per_epoch = (num_train_batches - 1) // grad_accumulation_steps + 1
 
-        results = engine.state.output
-        results_loss = results['loss']
-        if isinstance(results_loss, torch.Tensor):
-            loss_val = results_loss.item()
-            print_message = "Epoch[{}] Iteration[{}/{}] Loss: {:.2f}".format(epoch, iter_, num_train_batches, loss_val)
-        else:
-            if isinstance(results_loss, list):
-                loss_val = { f"({n})":l.item() for n,l in enumerate(results_loss, 1) }
-            elif isinstance(results_loss, dict):
-                loss_val = { k:l.item() for k,l in results_loss.items() }
-            else:
-                assert False, 'Invalid type for loss'
-            print_message = f"Epoch[{epoch}] Iteration[{iter_}/{num_train_batches}] Loss: "+"".join([ f" {k} = {v:.4f} " for k,v in loss_val.items() ])
-
         if iter_ % log_interval == 0:
+            results = engine.state.output
+            results_loss = results['loss']
+            if isinstance(results_loss, torch.Tensor):
+                loss_val = results_loss.item()
+                print_message = "Epoch[{}] Iteration[{}/{}] Loss: {:.2f}".format(epoch, iter_, num_train_batches, loss_val)
+            else:
+                if isinstance(results_loss, list):
+                    loss_val = { f"({n})":l.item() for n,l in enumerate(results_loss, 1) }
+                elif isinstance(results_loss, dict):
+                    loss_val = { k:l.item() for k,l in results_loss.items() }
+                else:
+                    assert False, 'Invalid type for loss'
+                print_message = f"Epoch[{epoch}] Iteration[{iter_}/{num_train_batches}] Loss: "+"".join([ f" {k} = {v:.4f} " for k,v in loss_val.items() ])
+
             if vis_tool in tensorboardX_flags:
                 print(print_message, flush=True)
                 writer.add_scalar("training/loss", loss_val, engine.state.iteration)
@@ -113,7 +113,7 @@ def create_default_events(config):
                 vis.line(X=np.array([engine.state.iteration]),
                          Y=np.array([engine.state.output]), update='append', win=train_loss_window)
             else:
-                pbar.desc = print_message#desc.format(loss_val)
+                pbar.desc = print_message
                 pbar.update(log_interval)
 
     @trainer.on(Events.EPOCH_COMPLETED)
