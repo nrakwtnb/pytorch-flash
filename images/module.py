@@ -8,9 +8,11 @@ import cv2
 from torch.utils.data import Dataset
 
 class Dataset(Dataset):
-    def __init__(self, image_dir, label_from_filename, size, interpolation=cv2.INTER_AREA, x_keyname='image', y_keyname='label', transform=None):
+    def __init__(self, image_dir, label_from_filename, size, interpolation=cv2.INTER_AREA, file_filter=None, x_keyname='image', y_keyname='label', transform=None):
         assert len(size) == 2
         self.files = glob.glob(os.path.join(image_dir, '**'))
+        if file_filter is not None:
+            self.files = list(filter(file_filter, self.files))
         self.files.sort()
         self.label_from_filename = label_from_filename
         self.label_set = self.compute_labels()
