@@ -55,20 +55,20 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--mnist-path")
 args = parser.parse_args()
 
-from manager import TrainManager
+from flash.manager import TrainManager
 manager = TrainManager()
 manager.set_config(config)
 
 import numpy as np
 np.random.seed(10)
-from debug import get_data_loaders
+from flash.debug import get_data_loaders
 mnist_path = args.mnist_path
 train_loader, val_loader = get_data_loaders(train_batch_size=manager.config["train"]["train_batch_size"],
                                             val_batch_size=manager.config["others"]["eval_batch_size"], mnist_path=mnist_path,
                                             train_dataset_size=np.random.randint(0,NUM_MNIST_TRAIN_SAMPLES,num_train_samples),
                                             val_dataset_size=np.random.randint(0,NUM_MNIST_VALIDATION_SAMPLES,num_validation_samples), download=True)
 
-from dataloader import get_sampled_loader
+from flash.dataloader import get_sampled_loader
 eval_train_loader = get_sampled_loader(train_loader, num_samples=num_train_eval_samples)
 
 
@@ -76,7 +76,7 @@ manager.set_dataloader(train_loader=train_loader, val_loader=val_loader, eval_tr
 
 
 
-from architectures import Generator, Discriminator
+from flash.architectures import Generator, Discriminator
 from examples import gan_config
 
 gen = Generator(gan_config.generator_info)
@@ -100,7 +100,7 @@ for k,p in gan.named_parameters():
 
 
 
-from optimizers import get_optimzier
+from flash.optimizers import get_optimzier
 
 optimizer_info = {
     "name" : "Adam",

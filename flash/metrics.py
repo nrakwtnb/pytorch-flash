@@ -3,7 +3,7 @@ import torch
 from ignite.exceptions import NotComputableError
 from ignite.metrics.metric import Metric
 
-from utils import _get_batchsize
+from flash.utils import _get_batchsize
 
 """
     ToDo
@@ -74,7 +74,7 @@ class Loss(Metric):
 
 
 from ignite.metrics import Precision, Recall, MetricsLambda
-from utils import get_y_values
+from flash.utils import get_y_values
 
 def get_precision(Is_average=True, Is_classwise=False, output_transform=get_y_values):
     metrics = {}

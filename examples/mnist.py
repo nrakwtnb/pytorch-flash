@@ -33,29 +33,29 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--mnist-path")
 args = parser.parse_args()
 
-from manager import TrainManager
+from flash.manager import TrainManager
 manager = TrainManager()
 manager.set_config(config)
 
 import numpy as np
 np.random.seed(10)
-from debug import get_data_loaders
+from flash.debug import get_data_loaders
 mnist_path = args.mnist_path
 train_loader, val_loader = get_data_loaders(train_batch_size=manager.config["train"]["train_batch_size"],
                                             val_batch_size=manager.config["others"]["val_batch_size"], mnist_path=mnist_path,
                                             train_dataset_size=np.random.randint(0,60000,20000),
                                             val_dataset_size=np.random.randint(0,10000,2000), download=True)
 
-from dataloader import get_sampled_loader
+from flash.dataloader import get_sampled_loader
 eval_train_loader = get_sampled_loader(train_loader, num_samples=2000)
 
 
 manager.set_dataloader(train_loader=train_loader, val_loader=val_loader, eval_train_loader=eval_train_loader)
 
-from debug import TestNet
+from flash.debug import TestNet
 model = TestNet()
 
-from optimizers import get_optimzier
+from flash.optimizers import get_optimzier
 
 optimizer_info = {
     "name" : "SGD",
@@ -70,7 +70,7 @@ optimizer = get_optimzier(optimizer_info, model)
 manager.add_model('test', model)
 
 manager.add_optimizer('test', optimizer)
-from utils import wrap_metrics, get_y_values
+from flash.utils import wrap_metrics, get_y_values
 import torch.nn as nn
 manager.add_loss_fn('test', wrap_metrics(nn.NLLLoss(), get_y_values))
 

@@ -5,9 +5,9 @@ from collections import defaultdict
 import torch
 from ignite.metrics import Accuracy
 
-from utils import wrap_metrics, get_y_values
-from metrics import Loss
-from files import prepare_target_dir
+from flash.utils import wrap_metrics, get_y_values
+from flash.metrics import Loss
+from flash.files import prepare_target_dir
 
 
 """
@@ -150,7 +150,7 @@ class TrainManager():
                 * Add other metrics ...
                 * Refactoring and make/unify the logic clear
         """
-        from metrics import get_precision, get_recall, get_F1score
+        from flash.metrics import get_precision, get_recall, get_F1score
         config = self.config
         loss_fns = self.config['objects']['loss_fns']
 
@@ -273,7 +273,7 @@ class TrainManager():
 
     # to rename the function later if necessary
     def setup_engines(self, trainer_args={}, evaluator_args={}):
-        from engine import create_trainer, create_evaluator
+        from flash.engine import create_trainer, create_evaluator
         config = self.config
         objects = config['objects']
         device = config['device']['name']
@@ -294,7 +294,7 @@ class TrainManager():
         }
 
     def create_default_events(self):
-        from event import create_default_events
+        from flash.event import create_default_events
         create_default_events(self.config)
 
     def run(self):
@@ -307,7 +307,7 @@ class TrainManager():
         trainer.run(data=train_loader, max_epochs=epochs)
 
     def close(self):
-        from event import close_logger
+        from flash.event import close_logger
         import json
         import os
         config = self.config

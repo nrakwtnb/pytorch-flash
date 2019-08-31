@@ -1,6 +1,6 @@
 
 #from .dev import forward_wrap
-from utils import forward_wrap
+from flash.utils import forward_wrap
 
 import torch.nn as nn
 import torch.nn.functional as F

@@ -36,7 +36,7 @@ config = {
     }
 }
 
-from manager import TrainManager
+from flash.manager import TrainManager
 manager = TrainManager()
 manager.set_config(config)
 
@@ -64,7 +64,7 @@ manager.set_dataloader(train_loader=train_loader, val_loader=val_loader)
 
 
 # ### model setup
-from utils import forward_wrap
+from flash.utils import forward_wrap
 
 import dgl.function as fn
 import torch
@@ -130,7 +130,7 @@ model = Classifier(1, 256, train_dataset.num_classes)
 manager.add_model('classifier', model)
 
 # ### optimizer setup
-from optimizers import get_optimzier
+from flash.optimizers import get_optimzier
 
 optimizer_info = {
     "name" : "Adam",

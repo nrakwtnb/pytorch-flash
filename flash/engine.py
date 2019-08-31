@@ -4,9 +4,9 @@ import numpy as np
 import torch
 from ignite.engine.engine import Engine
 
-from utils import _compute_start_indices, _partition_batch, _concat_results
-from utils import input_default_wrapper
-from utils import _apply_transform
+from flash.utils import _compute_start_indices, _partition_batch, _concat_results
+from flash.utils import input_default_wrapper
+from flash.utils import _apply_transform
 
 DEBUG = False
 

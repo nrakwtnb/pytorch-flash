@@ -2,8 +2,8 @@
 import torch
 import torch.nn as nn
 
-from utils import forward_wrap
-from blocks import Block_Conv
+from flash.utils import forward_wrap
+from flash.blocks import Block_Conv
 
 """
     The following are examples at this stage.
