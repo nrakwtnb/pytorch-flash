@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from flash.utils import forward_wrap
+
 
 class UnetEncoder(nn.Module):
     def __init__(self, model, output_layer_list):
@@ -17,6 +19,7 @@ class UnetEncoder(nn.Module):
         #self.layers = nn.ModuleList(layers)
         self.layers = nn.Sequential(*layers)
     
+    @forward_wrap
     def forward(self, x):
         outputs = []
         for layer in self.layers:
@@ -29,6 +32,7 @@ class UnetConnection(nn.Module):
         super(UnetConnection, self).__init__()
         self.connector = nn.ModuleList([info['module'](**info['args']) for info in connection_info_list])
     
+    @forward_wrap
     def forward(self, inputs):
         return [ layer(x) for layer, x in zip(self.connector, inputs) ]
 
@@ -37,6 +41,7 @@ class UnetDecoder(nn.Module):
         super(UnetDecoder, self).__init__()
         self.layers = nn.ModuleList([info['module'](**info['args']) for info in decoder_info_list])
     
+    @forward_wrap
     def forward(self, inputs):
         x = None
         for layer,h in zip(self.layers, inputs[::-1]):
@@ -49,6 +54,7 @@ class UnetOutput(nn.Module):
         super(UnetOutput, self).__init__()
         self.layers = nn.Sequential(*[info['module'](**info['args']) for info in output_info_list])
     
+    @forward_wrap
     def forward(self, x):
         return self.layers(x)
 
@@ -76,5 +82,4 @@ class Unet(nn.Module):
         h = self.decoder(h)
         h = self.output(h)
         return {'y':h}
-
 
