@@ -175,7 +175,7 @@ def print_logs(config, engine, metrics, phase):
 
     epoch = engine.state.epoch
     
-    print_message = f"Epoch: {epoch} :: {phase} results - " +\
+    print_message = f"Epoch: {epoch} :: {phase:^12} results - " +\
         " ".join([f"{name}: {value:.4f}" for name, value in metrics.items() if isinstance(value, float)])
     
     if vis_tool in tensorboardX_flags:
