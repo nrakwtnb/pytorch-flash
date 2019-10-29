@@ -55,7 +55,7 @@ def create_trainer(update_info_list,  data_loader, input_transform=input_default
 
             model = update_info['model']
             optimizer = update_info.get('optimizer', None)
-            loss_fn = update_info['loss_fn']
+            loss_fn = update_info.get('loss_fn', None)
             pre_operator = update_info.get('pre_operator', None)
             post_operator = update_info.get('post_operator', None)
             break_condition = update_info.get('break_condition', None)
@@ -71,10 +71,13 @@ def create_trainer(update_info_list,  data_loader, input_transform=input_default
 
                 if num_batch_division == 1:
                     outputs_stage = model(inputs)
-                    loss_stage = loss_fn({"inputs":inputs, "outputs":outputs_stage})
-                    loss_stage.backward()
-                    if not retain_comp_graph:
-                        loss_stage = loss_stage.detach()
+                    if loss_fn is not None:
+                        loss_stage = loss_fn({"inputs":inputs, "outputs":outputs_stage})
+                        loss_stage.backward()
+                        if not retain_comp_graph:
+                            loss_stage = loss_stage.detach()
+                    else:
+                        loss_stage = None
                 else:
                     if engine.state.iteration % num_train_batches != 0:
                         start_indices = start_indices_default
@@ -87,6 +90,7 @@ def create_trainer(update_info_list,  data_loader, input_transform=input_default
                         print(batch_sizes)###
                     outputs_stage = []
                     loss_stage = []
+                    assert loss_fn is not None### temporal
                     for inputs_, bs in zip(_partition_batch(inputs, start_indices), batch_sizes):
                         outputs_stage_ = model(inputs_)
                         loss_stage_ = loss_fn({"inputs":inputs_, "outputs":outputs_stage_}) * bs / start_indices[-1]

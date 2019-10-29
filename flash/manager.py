@@ -120,7 +120,7 @@ class TrainManager():
 
     def add_update_info(self, **update_info):
         assert 'model' in update_info
-        assert 'loss_fn' in update_info
+        #assert 'loss_fn' in update_info
         assert all(map(lambda x:isinstance(x, str) or isinstance(x, int) or isinstance(x, float), update_info.values()))
         config = self.config
         update_info_list = config['trainer']['update_info_list']
