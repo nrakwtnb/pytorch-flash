@@ -3,10 +3,30 @@ import torch.nn as nn
 
 from flash.utils import forward_wrap
 
-
 class UnetEncoder(nn.Module):
-    def __init__(self, model, output_layer_list):
+    def __init__(self, encoder_info_list, output_layer_list):
         super(UnetEncoder, self).__init__()
+        model_sequence = nn.ModuleList([info['module'](**info['args']) for info in encoder_info_list])
+
+        output_layer_list = [0] + [ n if n >=0 else len(model_sequence)+n+1 for n in output_layer_list ]
+        output_layer_list = list(set(output_layer_list))
+        output_layer_list.sort()
+        assert output_layer_list[0] >= 0 and output_layer_list[-1] <= len(model_sequence)
+        layers = [ nn.Sequential(*model_sequence[output_layer_list[i]:output_layer_list[i+1]]) for i in range(len(output_layer_list)-1) ]
+        self.layers = nn.Sequential(*layers)
+
+    @forward_wrap
+    def forward(self, x):
+        outputs = []
+        for layer in self.layers:
+            x = layer(x)
+            outputs.append(x)
+        return outputs
+
+
+class UnetEncoderFromBase(nn.Module):
+    def __init__(self, model, output_layer_list):
+        super(UnetEncoderFromBase, self).__init__()
         if hasattr(model, 'children'):
             model_sequence = list(model.children())
         else:
