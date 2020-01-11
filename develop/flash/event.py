@@ -37,7 +37,7 @@ def create_default_events(config):
 
 
     objects = config['objects']
-    grad_accumulation_steps = config['others']['grad_accumulation_steps']
+    grad_accumulation_steps = config['others'].get('grad_accumulation_steps', 1)
     train_loader = objects['data']['train_loader']
     val_loader = objects['data']['val_loader']
     eval_train_loader = objects['data'].get('eval_train_loader', None)
@@ -85,7 +85,7 @@ def create_default_events(config):
         epoch = engine.state.epoch
         iter_ = engine.state.iteration
         iter_ = ((iter_ - 1) % num_train_batches) // grad_accumulation_steps + 1
-        num_iter_per_epoch = (num_train_batches - 1) // grad_accumulation_steps + 1
+        #num_iter_per_epoch = (num_train_batches - 1) // grad_accumulation_steps + 1
 
         if iter_ % log_interval == 0:
             results = engine.state.output
@@ -131,6 +131,8 @@ def create_default_events(config):
         print_logs(config, engine, metrics, phase='validation')
         if vis_tool not in tensorboardX_flags and visdom_flags not in visdom_flags:
             pbar.n = pbar.last_print_n = 0
+        ###
+        trainer.save_metrics()
 
     
 

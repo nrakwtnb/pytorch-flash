@@ -41,3 +41,24 @@ class Dataset(Dataset):
         return { self.x_keyname:image, self.y_keyname:label }
 
 
+
+class SupervisedDataset(Dataset):
+    def __init__(self, x, y, x_keyname='x', y_keyname='y', transform=None, augmentator=None):
+        assert len(x) == len(y)
+        self.x = x
+        self.y = y
+        self.x_keyname = x_keyname
+        self.y_keyname = y_keyname
+        self.augmentator = augmentator
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.y)
+
+    def __getitem__(self, idx):
+        x = self.x[idx]
+        y = self.y[idx]
+        x, y = self.augmentator(x, y) if self.augmentator else (x, y)
+        x, y = self.transform(x, y) if self.transform else (x, y)
+        return { self.x_keyname:x, self.y_keyname:y }
+

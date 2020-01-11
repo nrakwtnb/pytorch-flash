@@ -73,7 +73,7 @@ def create_evaluator(process_list, metrics={}, input_transform=None, **kwargs):
     ToDo
         * ? add metrics evaluations
 """
-def evaluation(model, dataloader, input_transform=input_default_wrapper, **kwargs):
+def evaluation(model, dataloader, input_transform=None, **kwargs):
     def _inference(engine, batch):
         model.eval()
         with torch.no_grad():

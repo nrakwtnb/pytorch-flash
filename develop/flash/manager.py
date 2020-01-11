@@ -27,8 +27,34 @@ class TrainManager():
     def __init__(self):
         pass
 
-    def load_config(self):
-        pass
+    """experimental"""
+    def load_config(self, config_path):
+        ext = os.path.splitext(config_path)[1]
+        if ext == ".json":
+            import json
+            with open(config_path, "r") as f:
+                config = json.load(f)
+        elif ext == ".toml":
+            import toml
+            with open(config_path, "r") as f:
+                config = toml.load(f)
+        elif ext == ".yaml" or ext == ".yml":
+            import yaml
+            with open(config_path, "r") as f:
+                config = yaml.safe_load(f)
+        else:
+            raise NotImplementedError
+        self.set_config(config)
+
+    """experimental"""
+    def set_seed(self, seed_dict={}):
+        if seed_dict is not None:
+            import random
+            import numpy as np
+            import torch
+            radom.seed(seed_dict.get("random", 0))
+            np.radom.seed(seed_dict.get("numpy", 0))
+            torch.manual_seed(seed_dict.get("torch", 0))
 
     def set_config(self, config: dict):
         self.config = config
@@ -329,15 +355,17 @@ class TrainManager():
 
     def run(self):
         config = self.config
+        seed = self.config.get('seed', {})
         objects = config['objects']
         trainer = objects['engine']['trainer']
         train_loader = objects['data']['train_loader']
         epochs = config['train']['epochs']
 
+        self.set_seed(seed.get('run', {}))
         trainer.run(data=train_loader, max_epochs=epochs)
+        self.save_metrics()
 
-    def close(self):
-        from flash.event import close_logger
+    def save_metrics(self):
         import json
         import os
         config = self.config
@@ -348,6 +376,14 @@ class TrainManager():
             save_path = os.path.join(others['save_dir'], 'metrics_log.json')
             with open(save_path, 'w') as f:
                 json.dump(metrics_log, f)
+
+
+    def close(self):
+        from flash.event import close_logger
+        config = self.config
+        others = config['others']
+        objects = config['objects']
+        self.save_metrics()
         
         close_logger(objects['vis_tool'], others['vis_tool'])
 
