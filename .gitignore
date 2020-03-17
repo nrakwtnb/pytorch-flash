@@ -1,7 +1,9 @@
 *.swp
 *.bk
-work/
+work/*
 *_debug
 *.ignore
 tags
 __pycache__
+
+!work/New_engine_development_20190118.ipynb
